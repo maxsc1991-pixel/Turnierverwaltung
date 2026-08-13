@@ -8,7 +8,7 @@ import { bracketSeedOrder, buildSingleElimination, seedIntoBracket } from './bra
 import { buildDoubleElimination, isBracketResetNeeded } from './doubleKo';
 import { Resolver } from './resolve';
 import { qualifyFromGroups } from './qualification';
-import { scheduleMatches } from './schedule';
+import { findScheduleConflicts, groupFieldMap, scheduleMatches } from './schedule';
 import { createRng } from './rng';
 import {
   allStandings,
@@ -432,6 +432,82 @@ describe('Spielplan', () => {
       const gaps = played.slice(1).map((slot, i) => slot - played[i]);
       expect(Math.max(...gaps), `${player} wartet zu lange`).toBeLessThanOrEqual(3);
     }
+  });
+});
+
+describe('Feste Spielfelder je Gruppe', () => {
+  function plan(fields: number, assign: (index: number) => number | undefined) {
+    const players = makePlayers(16);
+    const groups = drawGroups(players, 4, createRng(9)).map((group, index) => ({
+      ...group,
+      field: assign(index),
+    }));
+    const cfg = config({ format: 'groups', participants: 16, groupCount: 4, groupSize: 4, fields });
+    const scheduled = scheduleMatches(buildGroupMatches(groups), cfg, {
+      groupFields: groupFieldMap(groups, cfg.fields),
+    });
+    return { groups, scheduled, cfg };
+  }
+
+  it('legt alle Spiele einer festgelegten Gruppe auf genau dieses Feld', () => {
+    const { groups, scheduled } = plan(4, (i) => (i === 0 ? 3 : undefined));
+    const pinned = groups[0].id;
+
+    const fieldsUsed = new Set(
+      scheduled.filter((m) => m.groupId === pinned).map((m) => m.field),
+    );
+    expect([...fieldsUsed]).toEqual([3]);
+
+    // Umgekehrt darf keine andere Gruppe auf das reservierte Feld ausweichen.
+    const foreign = scheduled.filter((m) => m.groupId !== pinned && m.field === 3);
+    expect(foreign).toHaveLength(0);
+  });
+
+  it('spielt eine festgelegte Gruppe nacheinander statt parallel', () => {
+    const { groups, scheduled } = plan(4, (i) => (i === 0 ? 1 : undefined));
+    const times = scheduled
+      .filter((m) => m.groupId === groups[0].id)
+      .map((m) => m.scheduledAt);
+
+    // 4 Spieler ergeben 6 Spiele – auf einem Feld also 6 verschiedene Zeiten.
+    expect(times).toHaveLength(6);
+    expect(new Set(times).size).toBe(6);
+  });
+
+  it('erzeugt auch mit festen Feldern keine Doppelbelegung', () => {
+    for (const assign of [
+      () => undefined,
+      (i: number) => (i === 0 ? 1 : undefined),
+      (i: number) => i + 1,
+      () => 2 as number,
+    ]) {
+      const { scheduled } = plan(4, assign);
+      expect(findScheduleConflicts(scheduled)).toHaveLength(0);
+
+      // Und jedes Spiel muss einen Termin bekommen haben.
+      expect(scheduled.every((m) => m.scheduledAt && m.field)).toBe(true);
+    }
+  });
+
+  it('ignoriert ein Feld, das es gar nicht gibt', () => {
+    const { groups, scheduled } = plan(2, (i) => (i === 0 ? 7 : undefined));
+    const pinnedMatches = scheduled.filter((m) => m.groupId === groups[0].id);
+    // Statt unplanbar zu werden, wird die Gruppe wieder automatisch verteilt.
+    expect(pinnedMatches.every((m) => m.field === 1 || m.field === 2)).toBe(true);
+    expect(pinnedMatches.every((m) => m.scheduledAt)).toBe(true);
+  });
+
+  it('erkennt eine von Hand erzeugte Doppelbelegung', () => {
+    const { scheduled } = plan(4, () => undefined);
+    const [first, ...rest] = scheduled;
+    const clash = rest.find((m) => m.scheduledAt !== first.scheduledAt) as Match;
+    const manual = scheduled.map((m) =>
+      m.id === clash.id ? { ...m, field: first.field, scheduledAt: first.scheduledAt } : m,
+    );
+
+    const conflicts = findScheduleConflicts(manual);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].matches).toHaveLength(2);
   });
 });
 

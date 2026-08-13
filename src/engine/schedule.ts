@@ -1,4 +1,4 @@
-import type { Match, Phase, TournamentConfig } from './types';
+import type { Group, Match, Phase, TournamentConfig } from './types';
 import { Resolver } from './resolve';
 
 const PHASE_ORDER: Record<Phase, number> = {
@@ -34,23 +34,59 @@ function dependencies(match: Match): string[] {
 }
 
 /**
+ * Ordnet jeder Gruppe ihr festes Spielfeld zu. Werte außerhalb der vorhandenen
+ * Felder werden verworfen, damit ein veraltetes Feld kein Spiel unplanbar macht.
+ */
+export function groupFieldMap(
+  groups: readonly Group[],
+  fieldCount: number,
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const group of groups) {
+    if (group.field !== undefined && group.field >= 1 && group.field <= fieldCount) {
+      map.set(group.id, group.field);
+    }
+  }
+  return map;
+}
+
+/**
  * Verteilt die Spiele auf Spielfelder und Zeitslots.
  *
  * Verfahren: für jeden Zeitslot werden die Felder nacheinander mit dem
  * spielbereiten Spiel belegt, dessen Spieler am längsten pausiert haben. Damit
  * entstehen weder Doppelbelegungen noch lange Wartezeiten für einzelne Spieler.
  * Spiele, die noch auf Vorspiele warten, werden erst danach eingeplant.
+ *
+ * Ist einer Gruppe ein festes Feld zugewiesen, laufen ihre Spiele ausschließlich
+ * dort – und damit zwangsläufig nacheinander. Die übrigen Partien weichen auf
+ * die nicht vergebenen Felder aus.
  */
 export function scheduleMatches(
   matches: readonly Match[],
   config: TournamentConfig,
-  options: { beginAt?: Date } = {},
+  options: { beginAt?: Date; groupFields?: Map<string, number> } = {},
 ): Match[] {
   const resolver = new Resolver(matches);
   const byId = new Map(matches.map((m) => [m.id, m]));
   const fields = Math.max(1, config.fields);
   const slotMinutes = Math.max(1, config.avgMatchMinutes);
   const begin = options.beginAt ?? startDate(config.startTime);
+
+  const groupFields = options.groupFields ?? new Map<string, number>();
+  const reserved = new Set(groupFields.values());
+
+  /**
+   * Ein Spiel einer festgelegten Gruppe gehört auf genau ihr Feld. Alle übrigen
+   * Spiele meiden die vergebenen Felder – es sei denn, es sind alle vergeben,
+   * dann zählt nur noch, dass überhaupt gespielt werden kann.
+   */
+  const fits = (match: Match, field: number): boolean => {
+    const pinned = match.groupId ? groupFields.get(match.groupId) : undefined;
+    if (pinned !== undefined) return pinned === field;
+    if (reserved.size === 0 || reserved.size >= fields) return true;
+    return !reserved.has(field);
+  };
 
   // Freilos-Spiele werden nie gespielt und belegen daher kein Feld.
   const playable = matches.filter((m) => !resolver.isWalkover(m));
@@ -85,6 +121,7 @@ export function scheduleMatches(
 
       for (const id of pending) {
         const match = byId.get(id) as Match;
+        if (!fits(match, field)) continue;
         if (!depsReady(match, slot)) continue;
         const players = resolver.playerIds(match);
         if (players.some((p) => busy.has(p))) continue;
@@ -104,7 +141,10 @@ export function scheduleMatches(
         }
       }
 
-      if (!best) break;
+      // Kein "break": ist für dieses Feld gerade nichts spielbar, kann auf einem
+      // anderen Feld trotzdem eine Partie anstehen – etwa weil dort eine fest
+      // zugewiesene Gruppe spielt.
+      if (!best) continue;
 
       pending.delete(best.id);
       scheduledSlot.set(best.id, slot);
@@ -131,6 +171,34 @@ function compareMatches(x: Match, y: Match): number {
   if (phase !== 0) return phase;
   if (x.round !== y.round) return x.round - y.round;
   return x.indexInRound - y.indexInRound;
+}
+
+export interface ScheduleConflict {
+  field: number;
+  scheduledAt: string;
+  matches: Match[];
+}
+
+/**
+ * Findet Doppelbelegungen – zwei Spiele zur selben Zeit auf demselben Feld.
+ * Der automatische Spielplan erzeugt so etwas nie; von Hand geänderte Felder
+ * oder Zeiten schon, und dann soll es sichtbar sein.
+ */
+export function findScheduleConflicts(matches: readonly Match[]): ScheduleConflict[] {
+  const buckets = new Map<string, Match[]>();
+  for (const match of matches) {
+    if (!match.scheduledAt || !match.field) continue;
+    const key = `${match.field}|${match.scheduledAt}`;
+    buckets.set(key, [...(buckets.get(key) ?? []), match]);
+  }
+
+  return [...buckets.entries()]
+    .filter(([, list]) => list.length > 1)
+    .map(([key, list]) => {
+      const [field, scheduledAt] = key.split('|');
+      return { field: Number(field), scheduledAt, matches: list };
+    })
+    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 }
 
 /** Geschätztes Turnierende auf Basis des letzten geplanten Spiels. */

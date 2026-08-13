@@ -145,9 +145,12 @@ export function LivePage() {
                 <div className="card" key={group.id} style={{ marginTop: 0 }}>
                   <div className="group-card__head">
                     <span>{group.name}</span>
-                    <span className="badge badge--dark">
-                      {matches.filter((m) => m.groupId === group.id && m.result).length} /{' '}
-                      {matches.filter((m) => m.groupId === group.id).length} Spiele
+                    <span className="row" style={{ gap: 'var(--space-2)', flexWrap: 'nowrap' }}>
+                      {group.field && <span className="badge badge--red">Feld {group.field}</span>}
+                      <span className="badge badge--dark">
+                        {matches.filter((m) => m.groupId === group.id && m.result).length} /{' '}
+                        {matches.filter((m) => m.groupId === group.id).length} Spiele
+                      </span>
                     </span>
                   </div>
                   <div className="card__body card__body--flush">

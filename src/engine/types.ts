@@ -62,6 +62,12 @@ export interface Group {
   id: string;
   name: string;
   playerIds: string[];
+  /**
+   * Festes Spielfeld für die ganze Gruppe. Ist es gesetzt, laufen alle Spiele
+   * dieser Gruppe nacheinander auf diesem Feld. Ohne Angabe verteilt der
+   * Spielplan die Partien automatisch.
+   */
+  field?: number;
 }
 
 export interface DartSettings {

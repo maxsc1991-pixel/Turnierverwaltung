@@ -4,7 +4,7 @@ import { useTournamentStore } from '../store/useTournamentStore';
 import { BracketView } from '../components/BracketView';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
-import { estimatedEnd, formatTime, startDate } from '../engine/schedule';
+import { estimatedEnd, findScheduleConflicts, formatTime, startDate } from '../engine/schedule';
 import { FORMAT_LABEL, SPORT_LABEL, bestOf, type Match } from '../engine/types';
 import { findGroupOption, roundNames } from '../engine/validation';
 
@@ -13,6 +13,7 @@ export function PlanPage() {
   const tournament = useTournamentStore((s) => s.active);
   const redrawPlan = useTournamentStore((s) => s.redrawPlan);
   const swapPlayers = useTournamentStore((s) => s.swapPlayers);
+  const setGroupField = useTournamentStore((s) => s.setGroupField);
   const setMatchField = useTournamentStore((s) => s.setMatchField);
   const setMatchTime = useTournamentStore((s) => s.setMatchTime);
   const confirmPlan = useTournamentStore((s) => s.confirmPlan);
@@ -42,6 +43,7 @@ export function PlanPage() {
   const option = findGroupOption(config.participants, config.groupCount);
   const playable = matches.filter((m) => !resolver.isWalkover(m));
   const end = estimatedEnd(matches, config);
+  const conflicts = findScheduleConflicts(playable);
 
   const pick = (playerId: string) => {
     if (locked) return;
@@ -134,7 +136,29 @@ export function PlanPage() {
                 <div className="card" key={group.id} style={{ marginTop: 0 }}>
                   <div className="group-card__head">
                     <span>{group.name}</span>
-                    <span className="badge badge--dark">{group.playerIds.length} Spieler</span>
+                    {locked ? (
+                      <span className="badge badge--dark">
+                        {group.field ? `Feld ${group.field}` : `${group.playerIds.length} Spieler`}
+                      </span>
+                    ) : (
+                      <label className="group-field">
+                        <span>Feld</span>
+                        <select
+                          value={group.field ?? ''}
+                          aria-label={`Spielfeld für ${group.name}`}
+                          onChange={(e) =>
+                            setGroupField(group.id, e.target.value ? Number(e.target.value) : undefined)
+                          }
+                        >
+                          <option value="">automatisch</option>
+                          {Array.from({ length: config.fields }, (_, i) => i + 1).map((field) => (
+                            <option key={field} value={field}>
+                              {field}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                   </div>
                   <div className="card__body" style={{ padding: 'var(--space-2)' }}>
                     {group.playerIds.map((playerId, index) => {
@@ -225,6 +249,22 @@ export function PlanPage() {
             Automatisch so verteilt, dass die Pausen möglichst gleichmäßig sind.
           </span>
         </div>
+        {conflicts.length > 0 && (
+          <div style={{ padding: 'var(--space-4) var(--space-5) 0' }}>
+            <div className="notice notice--warning">
+              <div>
+                <strong>Doppelbelegung:</strong> {conflicts.length}{' '}
+                {conflicts.length === 1 ? 'Zeitpunkt ist' : 'Zeitpunkte sind'} doppelt belegt –{' '}
+                {conflicts
+                  .slice(0, 3)
+                  .map((c) => `Feld ${c.field} um ${formatTime(c.scheduledAt)}`)
+                  .join(', ')}
+                {conflicts.length > 3 ? ' …' : ''}. Über „Neu auslosen" wird der Spielplan wieder
+                sauber verteilt.
+              </div>
+            </div>
+          </div>
+        )}
         <div className="card__body card__body--flush">
           <div className="table-scroll">
             <table className="schedule-table">

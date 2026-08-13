@@ -4,7 +4,7 @@ import type { MatchResult, Player, Tournament, TournamentConfig } from '../engin
 import { defaultConfig } from '../engine/types';
 import { newPlayerId, parsePlayerList, reseed } from '../engine/players';
 import { buildGroupMatches } from '../engine/groups';
-import { scheduleMatches } from '../engine/schedule';
+import { groupFieldMap, scheduleMatches } from '../engine/schedule';
 import {
   createTournament,
   finishTournament,
@@ -41,6 +41,7 @@ interface AppState {
   generatePlan: () => void;
   redrawPlan: () => void;
   swapPlayers: (playerA: string, playerB: string) => void;
+  setGroupField: (groupId: string, field: number | undefined) => void;
   setMatchField: (matchId: string, field: number) => void;
   setMatchTime: (matchId: string, isoTime: string) => void;
   confirmPlan: () => void;
@@ -141,7 +142,13 @@ export const useTournamentStore = create<AppState>()(
                   id === playerA ? playerB : id === playerB ? playerA : id,
                 ),
               }));
-              return { ...t, groups, matches: scheduleMatches(buildGroupMatches(groups), t.config) };
+              return {
+                ...t,
+                groups,
+                matches: scheduleMatches(buildGroupMatches(groups), t.config, {
+                  groupFields: groupFieldMap(groups, t.config.fields),
+                }),
+              };
             }
 
             const matches = t.matches.map((match) => {
@@ -152,6 +159,27 @@ export const useTournamentStore = create<AppState>()(
               return { ...match, a: swap(match.a), b: swap(match.b) };
             });
             return { ...t, matches: scheduleMatches(matches, t.config) };
+          }),
+        ),
+
+      /**
+       * Legt eine ganze Gruppe auf ein Spielfeld fest (oder gibt sie wieder
+       * frei). Der Spielplan wird anschließend neu terminiert, damit die Spiele
+       * der Gruppe nacheinander auf diesem Feld liegen statt parallel.
+       */
+      setGroupField: (groupId, field) =>
+        set((s) =>
+          updateActive(s, (t) => {
+            const groups = t.groups.map((group) =>
+              group.id === groupId ? { ...group, field } : group,
+            );
+            return {
+              ...t,
+              groups,
+              matches: scheduleMatches(t.matches, t.config, {
+                groupFields: groupFieldMap(groups, t.config.fields),
+              }),
+            };
           }),
         ),
 

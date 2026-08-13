@@ -142,6 +142,23 @@ Schnelleingabe akzeptiert Kurzformen wie `1:0 (21:17)`.
 **Wertung:** Sieg = 2 Punkte, Unentschieden = 1, Niederlage = 0. Die Gruppenplatzierung entscheidet
 sich nach **Punkte → Leg-Differenz → direkter Vergleich → gewonnene Legs → Losentscheid**.
 
+## Spielfelder festlegen
+
+Auf der Seite *Turnierplan* trägt jede Gruppe im Kopf ein Auswahlfeld **Feld**:
+
+- **automatisch** (Voreinstellung) – der Spielplan verteilt die Partien der Gruppe frei auf alle
+  Felder und hält die Pausen möglichst gleichmäßig.
+- **eine feste Feldnummer** – sämtliche Spiele dieser Gruppe laufen auf diesem Feld. Weil auf einem
+  Feld nur nacheinander gespielt werden kann, werden sie automatisch hintereinander terminiert, und
+  kein anderes Spiel belegt dieses Feld.
+
+Unabhängig davon lässt sich in der Tabelle *Spielfelder und Zeiten* weiterhin jedes einzelne Spiel
+von Hand auf ein anderes Feld oder eine andere Uhrzeit legen. Entsteht dabei eine Doppelbelegung –
+zwei Spiele zur selben Zeit auf demselben Feld –, erscheint über der Tabelle eine Warnung mit den
+betroffenen Feldern und Zeiten. Über *Neu auslosen* wird der Spielplan wieder sauber verteilt.
+
+Während des Turniers zeigt jede Gruppe ihr festes Feld als rote Markierung neben dem Gruppennamen.
+
 ## Spielplan und faire Pausen
 
 Aus Turnierstart, durchschnittlicher Spieldauer und Anzahl der Spielfelder wird ein Zeitraster

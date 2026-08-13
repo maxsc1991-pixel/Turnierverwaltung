@@ -14,7 +14,7 @@ import { buildGroupMatches, drawGroups } from './groups';
 import { qualifyFromGroups } from './qualification';
 import { Resolver } from './resolve';
 import { createRng, newSeed, shuffle } from './rng';
-import { estimatedEnd, scheduleMatches } from './schedule';
+import { estimatedEnd, groupFieldMap, scheduleMatches } from './schedule';
 import { computeStandings } from './standings';
 import { findGroupOption } from './validation';
 
@@ -31,7 +31,9 @@ export function generatePlan(
 ): { groups: Group[]; matches: Match[] } {
   if (config.format === 'groups') {
     const groups = drawGroups(players, config.groupCount, createRng(seed));
-    const matches = scheduleMatches(buildGroupMatches(groups), config);
+    const matches = scheduleMatches(buildGroupMatches(groups), config, {
+      groupFields: groupFieldMap(groups, config.fields),
+    });
     return { groups, matches };
   }
 
