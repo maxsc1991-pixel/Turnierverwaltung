@@ -1,0 +1,451 @@
+import { describe, expect, it } from 'vitest';
+import type { Match, Player, TournamentConfig } from './types';
+import { defaultConfig } from './types';
+import { groupOptions, roundNames, validateConfig, hasErrors, findGroupOption } from './validation';
+import { buildGroupMatches, drawGroups, roundRobinRounds } from './groups';
+import { computeStandings } from './standings';
+import { bracketSeedOrder, buildSingleElimination, seedIntoBracket } from './bracket';
+import { buildDoubleElimination, isBracketResetNeeded } from './doubleKo';
+import { Resolver } from './resolve';
+import { qualifyFromGroups } from './qualification';
+import { scheduleMatches } from './schedule';
+import { createRng } from './rng';
+import {
+  allStandings,
+  computeFinalRanking,
+  createTournament,
+  seedOf,
+  startKoPhase,
+} from './tournament';
+
+function makePlayers(count: number): Player[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `p${i + 1}`,
+    name: `Spieler ${i + 1}`,
+    seed: i + 1,
+  }));
+}
+
+function config(overrides: Partial<TournamentConfig> = {}): TournamentConfig {
+  return { ...defaultConfig(), ...overrides };
+}
+
+/** Spielt ein Match aus – `winner` ist 'a' oder 'b'. */
+function play(match: Match, winner: 'a' | 'b', legs = 2): Match {
+  return {
+    ...match,
+    result: winner === 'a' ? { legsA: legs, legsB: 0 } : { legsA: 0, legsB: legs },
+  };
+}
+
+describe('Validierung der Gruppeneinteilung', () => {
+  it('erlaubt die geforderten Zweierpotenz-Kombinationen', () => {
+    const cases: Array<[number, number, number, number]> = [
+      // [Teilnehmer, Gruppen, Qualifikanten, beste Dritte]
+      [8, 2, 4, 0],
+      [16, 4, 8, 0],
+      [32, 8, 16, 0],
+      [64, 16, 32, 0],
+    ];
+    for (const [participants, groupCount, qualifiers, bestThirds] of cases) {
+      const option = findGroupOption(participants, groupCount);
+      expect(option, `${participants} TN / ${groupCount} Gruppen`).toBeDefined();
+      expect(option?.qualifiers).toBe(qualifiers);
+      expect(option?.bestThirds).toBe(bestThirds);
+      expect(option?.groupSize).toBe(participants / groupCount);
+    }
+  });
+
+  it('nimmt bei 12/3, 24/6 und 48/12 die besten Dritten dazu', () => {
+    expect(findGroupOption(12, 3)).toMatchObject({ groupSize: 4, qualifiers: 8, bestThirds: 2 });
+    expect(findGroupOption(24, 6)).toMatchObject({ groupSize: 4, qualifiers: 16, bestThirds: 4 });
+    expect(findGroupOption(48, 12)).toMatchObject({ groupSize: 4, qualifiers: 32, bestThirds: 8 });
+  });
+
+  it('lehnt 20 Teilnehmer in 5 Gruppen ab, erlaubt aber 4 Gruppen à 5', () => {
+    expect(findGroupOption(20, 5)).toBeUndefined();
+    expect(findGroupOption(20, 4)).toMatchObject({ groupSize: 5, qualifiers: 8, bestThirds: 0 });
+  });
+
+  it('schließt 128 Teilnehmer im Gruppenmodus aus', () => {
+    expect(groupOptions(128)).toHaveLength(0);
+    const issues = validateConfig(config({ format: 'groups', participants: 128, groupCount: 32, groupSize: 4 }), 128);
+    expect(hasErrors(issues)).toBe(true);
+    expect(issues.some((i) => i.message.includes('128 Teilnehmer'))).toBe(true);
+  });
+
+  it('meldet einen Fehler, wenn Gruppen × Stärke nicht der Teilnehmerzahl entspricht', () => {
+    const issues = validateConfig(config({ format: 'groups', participants: 16, groupCount: 3, groupSize: 4 }), 16);
+    expect(hasErrors(issues)).toBe(true);
+  });
+
+  it('leitet die Rundennamen aus der Zahl der Qualifikanten ab', () => {
+    expect(roundNames(4)).toEqual(['Halbfinale', 'Finale']);
+    expect(roundNames(8)).toEqual(['Viertelfinale', 'Halbfinale', 'Finale']);
+    expect(roundNames(16)).toEqual(['Achtelfinale', 'Viertelfinale', 'Halbfinale', 'Finale']);
+    expect(roundNames(32)).toEqual([
+      'Sechzehntelfinale',
+      'Achtelfinale',
+      'Viertelfinale',
+      'Halbfinale',
+      'Finale',
+    ]);
+  });
+});
+
+describe('Round Robin', () => {
+  it('spielt jede Paarung genau einmal', () => {
+    for (const size of [3, 4, 5, 6, 8]) {
+      const ids = makePlayers(size).map((p) => p.id);
+      const rounds = roundRobinRounds(ids);
+      const seen = new Set<string>();
+      for (const round of rounds) {
+        for (const [a, b] of round) seen.add([a, b].sort().join('|'));
+      }
+      expect(seen.size, `${size} Spieler`).toBe((size * (size - 1)) / 2);
+    }
+  });
+
+  it('setzt keinen Spieler zweimal in dieselbe Runde', () => {
+    const ids = makePlayers(7).map((p) => p.id);
+    for (const round of roundRobinRounds(ids)) {
+      const players = round.flat();
+      expect(new Set(players).size).toBe(players.length);
+    }
+  });
+});
+
+describe('Gruppentabelle', () => {
+  const players = makePlayers(4);
+  const seed = seedOf(players);
+
+  function groupMatch(id: string, a: string, b: string, legsA: number, legsB: number): Match {
+    return {
+      id,
+      phase: 'group',
+      round: 1,
+      indexInRound: 0,
+      groupId: 'g1',
+      label: 'Test',
+      roundLabel: 'Runde 1',
+      a: { kind: 'player', playerId: a },
+      b: { kind: 'player', playerId: b },
+      result: { legsA, legsB },
+    };
+  }
+
+  it('vergibt 2 Punkte je Sieg und rechnet die Leg-Differenz', () => {
+    const matches = [groupMatch('m1', 'p1', 'p2', 2, 0), groupMatch('m2', 'p3', 'p4', 2, 1)];
+    const table = computeStandings(['p1', 'p2', 'p3', 'p4'], matches, seed);
+    expect(table[0]).toMatchObject({ playerId: 'p1', points: 2, legDiff: 2, rank: 1 });
+    expect(table[1]).toMatchObject({ playerId: 'p3', points: 2, legDiff: 1 });
+    expect(table.find((t) => t.playerId === 'p2')?.points).toBe(0);
+  });
+
+  it('entscheidet bei gleicher Punkt- und Legdifferenz über den direkten Vergleich', () => {
+    // p1 und p2 haben beide 2 Punkte und Legdifferenz 0, p1 gewinnt direkt.
+    const matches = [
+      groupMatch('m1', 'p1', 'p2', 2, 1),
+      groupMatch('m2', 'p2', 'p1', 2, 1),
+      groupMatch('m3', 'p1', 'p3', 0, 2),
+      groupMatch('m4', 'p2', 'p3', 0, 2),
+    ];
+    // Beide haben je 1 Sieg gegeneinander -> Legdifferenz im direkten Vergleich gleich.
+    const table = computeStandings(['p1', 'p2'], matches.slice(0, 2), seed);
+    expect(table.map((t) => t.points)).toEqual([2, 2]);
+
+    // Klarer Fall: p1 gewinnt den direkten Vergleich deutlich.
+    const decided = computeStandings(
+      ['p1', 'p2'],
+      [groupMatch('a', 'p1', 'p2', 2, 0), groupMatch('b', 'p2', 'p1', 2, 0)],
+      seed,
+    );
+    expect(decided.map((t) => t.points)).toEqual([2, 2]);
+    expect(decided[0].tiebreak).toBeDefined();
+  });
+
+  it('sortiert Punktgleiche über die Leg-Differenz vor dem direkten Vergleich', () => {
+    // p2 gewinnt direkt gegen p1, hat aber die schlechtere Legdifferenz.
+    const matches = [
+      groupMatch('m1', 'p2', 'p1', 2, 1),
+      groupMatch('m2', 'p1', 'p3', 2, 0),
+      groupMatch('m3', 'p2', 'p3', 2, 1),
+    ];
+    const table = computeStandings(['p1', 'p2', 'p3'], matches, seed);
+    expect(table[0].playerId).toBe('p2');
+    expect(table[0].legDiff).toBe(2);
+    expect(table[1].playerId).toBe('p1');
+  });
+});
+
+describe('Single-KO-Bracket', () => {
+  it('verteilt die Setzliste so, dass sich 1 und 2 erst im Finale treffen', () => {
+    expect(bracketSeedOrder(8)).toEqual([1, 8, 4, 5, 2, 7, 3, 6]);
+  });
+
+  it('gibt bei 13 Teilnehmern Freilose an die höchstgesetzten Spieler', () => {
+    const players = makePlayers(13);
+    const positions = seedIntoBracket(players.map((p) => ({ kind: 'player', playerId: p.id })));
+    expect(positions).toHaveLength(16);
+
+    const bracket = buildSingleElimination(positions, { idPrefix: 'ko', phase: 'ko' });
+    const firstRound = bracket.filter((m) => m.round === 1);
+    expect(firstRound).toHaveLength(8);
+
+    const resolver = new Resolver(bracket);
+    const walkovers = firstRound.filter((m) => resolver.isWalkover(m));
+    expect(walkovers).toHaveLength(3);
+
+    // Die Freilose gehen an die Seeds 1, 2 und 3.
+    const advancing = walkovers
+      .map((m) => resolver.winner(m.id))
+      .map((r) => (r.kind === 'player' ? r.playerId : null));
+    expect(advancing.sort()).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it('führt ein 16er-Bracket zu genau einem Sieger', () => {
+    const players = makePlayers(13);
+    const tournament = createTournament(
+      config({ format: 'single_ko', participants: 13, thirdPlaceMatch: false }),
+      players,
+      42,
+    );
+
+    let matches = tournament.matches;
+    for (let guard = 0; guard < 50; guard++) {
+      const resolver = new Resolver(matches);
+      const next = matches.find((m) => resolver.status(m) === 'ready');
+      if (!next) break;
+      matches = matches.map((m) => (m.id === next.id ? play(m, 'a') : m));
+    }
+
+    const resolver = new Resolver(matches);
+    const finalRound = Math.max(...matches.map((m) => m.round));
+    const final = matches.find((m) => m.round === finalRound) as Match;
+    expect(resolver.winner(final.id).kind).toBe('player');
+
+    const ranking = computeFinalRanking({ ...tournament, matches });
+    expect(ranking.filter((r) => r.rank === 1)).toHaveLength(1);
+    expect(ranking.filter((r) => r.rank === 2)).toHaveLength(1);
+  });
+});
+
+describe('Doppel-KO', () => {
+  it('baut Sieger- und Verliererrunde in der richtigen Größe', () => {
+    const entries = makePlayers(8).map((p) => ({ kind: 'player' as const, playerId: p.id }));
+    const matches = buildDoubleElimination(entries);
+
+    expect(matches.filter((m) => m.phase === 'wb')).toHaveLength(7);
+    expect(matches.filter((m) => m.phase === 'lb')).toHaveLength(6);
+    expect(matches.filter((m) => m.phase === 'gf')).toHaveLength(1);
+
+    const lbRounds = new Set(matches.filter((m) => m.phase === 'lb').map((m) => m.round));
+    expect(lbRounds.size).toBe(4);
+  });
+
+  it('scheidet jeden Spieler erst nach zwei Niederlagen aus', () => {
+    const entries = makePlayers(8).map((p) => ({ kind: 'player' as const, playerId: p.id }));
+    let matches = buildDoubleElimination(entries);
+
+    const losses = new Map<string, number>();
+    for (let guard = 0; guard < 60; guard++) {
+      const resolver = new Resolver(matches);
+      const next = matches.find((m) => resolver.status(m) === 'ready' && m.phase !== 'gf_reset');
+      if (!next) break;
+      // Der jeweils niedrigere Seed gewinnt – deterministisch und nachvollziehbar.
+      const [pa, pb] = resolver.playerIds(next);
+      const winner = Number(pa.slice(1)) < Number(pb.slice(1)) ? 'a' : 'b';
+      losses.set(winner === 'a' ? pb : pa, (losses.get(winner === 'a' ? pb : pa) ?? 0) + 1);
+      matches = matches.map((m) => (m.id === next.id ? play(m, winner) : m));
+    }
+
+    for (const [player, count] of losses) {
+      expect(count, `${player} hat ${count} Niederlagen`).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('erzeugt das Rückspiel nur, wenn der Sieger der Siegerrunde das Grand Final verliert', () => {
+    const entries = makePlayers(4).map((p) => ({ kind: 'player' as const, playerId: p.id }));
+    const base = buildDoubleElimination(entries);
+
+    const playAll = (pick: (match: Match, resolver: Resolver) => 'a' | 'b') => {
+      let matches = base;
+      for (let guard = 0; guard < 30; guard++) {
+        const resolver = new Resolver(matches);
+        const next = matches.find((m) => resolver.status(m) === 'ready' && m.phase !== 'gf_reset');
+        if (!next) break;
+        matches = matches.map((m) => (m.id === next.id ? play(m, pick(next, resolver)) : m));
+      }
+      return matches;
+    };
+
+    // Seite A gewinnt immer -> im Grand Final gewinnt der Sieger der Siegerrunde.
+    const noReset = playAll(() => 'a');
+    expect(isBracketResetNeeded(noReset, new Resolver(noReset))).toBe(false);
+
+    // Im Grand Final gewinnt der Herausforderer aus der Verliererrunde.
+    const withReset = playAll((match) => (match.phase === 'gf' ? 'b' : 'a'));
+    expect(isBracketResetNeeded(withReset, new Resolver(withReset))).toBe(true);
+  });
+});
+
+describe('Setzung aus der Gruppenphase', () => {
+  function playGroupPhase(participants: number, groupCount: number) {
+    const players = makePlayers(participants);
+    const option = findGroupOption(participants, groupCount);
+    const tournament = createTournament(
+      config({
+        format: 'groups',
+        participants,
+        groupCount,
+        groupSize: participants / groupCount,
+        thirdPlaceMatch: false,
+      }),
+      players,
+      7,
+    );
+
+    // Der Spieler mit der kleineren Nummer gewinnt – erzeugt eine klare Rangfolge.
+    const matches = tournament.matches.map((m) => {
+      if (m.phase !== 'group') return m;
+      const a = Number((m.a as { playerId: string }).playerId.slice(1));
+      const b = Number((m.b as { playerId: string }).playerId.slice(1));
+      return play(m, a < b ? 'a' : 'b');
+    });
+
+    return { tournament: { ...tournament, matches }, option };
+  }
+
+  it('lässt bei 16 Teilnehmern die Gruppensieger gegen Zweite anderer Gruppen antreten', () => {
+    const { tournament } = playGroupPhase(16, 4);
+    const started = startKoPhase(tournament);
+    const firstRound = started.matches.filter((m) => m.phase === 'ko' && m.round === 1);
+    expect(firstRound).toHaveLength(4);
+
+    const groupOf = new Map<string, string>();
+    for (const group of started.groups) {
+      for (const id of group.playerIds) groupOf.set(id, group.id);
+    }
+
+    const resolver = new Resolver(started.matches);
+    for (const match of firstRound) {
+      const [a, b] = resolver.playerIds(match);
+      expect(groupOf.get(a), 'kein Gruppenduell in Runde 1').not.toBe(groupOf.get(b));
+    }
+  });
+
+  it('nimmt bei 12 Teilnehmern in 3 Gruppen die zwei besten Dritten mit', () => {
+    const { tournament, option } = playGroupPhase(12, 3);
+    expect(option?.bestThirds).toBe(2);
+
+    const standings = allStandings(tournament);
+    const { positions, pairings } = qualifyFromGroups(
+      tournament.groups,
+      standings,
+      2,
+      seedOf(tournament.players),
+    );
+
+    expect(positions).toHaveLength(8);
+    expect(pairings).toHaveLength(4);
+
+    const ranks = pairings.flatMap((p) => [p.home.groupRank, p.away.groupRank]);
+    expect(ranks.filter((r) => r === 1)).toHaveLength(3);
+    expect(ranks.filter((r) => r === 2)).toHaveLength(3);
+    expect(ranks.filter((r) => r === 3)).toHaveLength(2);
+
+    // Jeder Qualifikant steht genau einmal im Bracket.
+    const ids = positions.map((p) => (p.kind === 'player' ? p.playerId : ''));
+    expect(new Set(ids).size).toBe(8);
+  });
+
+  it('erzeugt bei 24 Teilnehmern in 6 Gruppen ein Achtelfinale mit 4 besten Dritten', () => {
+    const { tournament, option } = playGroupPhase(24, 6);
+    expect(option?.bestThirds).toBe(4);
+
+    const started = startKoPhase(tournament);
+    const firstRound = started.matches.filter((m) => m.phase === 'ko' && m.round === 1);
+    expect(firstRound).toHaveLength(8);
+    expect(firstRound[0].label).toContain('Achtelfinale');
+  });
+});
+
+describe('Spielplan', () => {
+  it('setzt keinen Spieler zeitgleich auf zwei Felder', () => {
+    const players = makePlayers(16);
+    const groups = drawGroups(players, 4, createRng(1));
+    const cfg = config({ format: 'groups', participants: 16, groupCount: 4, groupSize: 4, fields: 3 });
+    const scheduled = scheduleMatches(buildGroupMatches(groups), cfg);
+
+    const bySlot = new Map<string, string[]>();
+    for (const match of scheduled) {
+      if (!match.scheduledAt) continue;
+      const list = bySlot.get(match.scheduledAt) ?? [];
+      list.push(...new Resolver(scheduled).playerIds(match));
+      bySlot.set(match.scheduledAt, list);
+    }
+
+    for (const [slot, ids] of bySlot) {
+      expect(new Set(ids).size, `Doppelbelegung um ${slot}`).toBe(ids.length);
+    }
+  });
+
+  it('belegt nie mehr Felder als konfiguriert', () => {
+    const players = makePlayers(16);
+    const groups = drawGroups(players, 4, createRng(2));
+    const cfg = config({ format: 'groups', participants: 16, groupCount: 4, groupSize: 4, fields: 2 });
+    const scheduled = scheduleMatches(buildGroupMatches(groups), cfg);
+
+    const perSlot = new Map<string, number>();
+    for (const match of scheduled) {
+      if (!match.scheduledAt) continue;
+      perSlot.set(match.scheduledAt, (perSlot.get(match.scheduledAt) ?? 0) + 1);
+      expect(match.field).toBeLessThanOrEqual(2);
+    }
+    for (const count of perSlot.values()) expect(count).toBeLessThanOrEqual(2);
+  });
+
+  it('verteilt die Spiele fair – niemand wartet unnötig lange', () => {
+    const players = makePlayers(16);
+    const groups = drawGroups(players, 4, createRng(3));
+    const cfg = config({ format: 'groups', participants: 16, groupCount: 4, groupSize: 4, fields: 4 });
+    const scheduled = scheduleMatches(buildGroupMatches(groups), cfg);
+
+    const resolver = new Resolver(scheduled);
+    const slots = [...new Set(scheduled.map((m) => m.scheduledAt).filter(Boolean))].sort();
+    const slotIndex = new Map(slots.map((s, i) => [s as string, i]));
+
+    const perPlayer = new Map<string, number[]>();
+    for (const match of scheduled) {
+      if (!match.scheduledAt) continue;
+      for (const id of resolver.playerIds(match)) {
+        const list = perPlayer.get(id) ?? [];
+        list.push(slotIndex.get(match.scheduledAt) as number);
+        perPlayer.set(id, list);
+      }
+    }
+
+    // Bei 4 Gruppen à 4 auf 4 Feldern spielt jeder 3 Spiele. Die größte Pause
+    // zwischen zwei Spielen darf nicht ausufern.
+    for (const [player, played] of perPlayer) {
+      played.sort((a, b) => a - b);
+      const gaps = played.slice(1).map((slot, i) => slot - played[i]);
+      expect(Math.max(...gaps), `${player} wartet zu lange`).toBeLessThanOrEqual(3);
+    }
+  });
+});
+
+describe('Freilose bei krummen Teilnehmerzahlen', () => {
+  it('belegt Freilos-Spiele mit keinem Zeitslot', () => {
+    const players = makePlayers(6);
+    const tournament = createTournament(
+      config({ format: 'single_ko', participants: 6, thirdPlaceMatch: false, fields: 2 }),
+      players,
+      11,
+    );
+    const resolver = new Resolver(tournament.matches);
+    for (const match of tournament.matches) {
+      if (resolver.isWalkover(match)) expect(match.scheduledAt).toBeUndefined();
+    }
+  });
+});

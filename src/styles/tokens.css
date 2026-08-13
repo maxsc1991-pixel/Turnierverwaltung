@@ -1,0 +1,47 @@
+/*
+ * Farbwelt des DC Lok Pfalzel. Nur diese vier Farben sind gesetzt – alle
+ * Grautöne werden daraus abgeleitet, damit das Bild geschlossen bleibt.
+ */
+:root {
+  --c-red: #e52928;
+  --c-green: #378c45;
+  --c-black: #000000;
+  --c-white: #ffffff;
+
+  --c-red-dark: #b81f1e;
+  --c-red-soft: #fdecec;
+  --c-green-dark: #2b7038;
+  --c-green-soft: #eaf4ec;
+
+  --c-ink: #101010;
+  --c-ink-muted: #5c5c5c;
+  --c-ink-faint: #8a8a8a;
+
+  --c-surface: #ffffff;
+  --c-surface-alt: #f5f5f6;
+  --c-surface-sunken: #ebebed;
+  --c-border: #dcdcdf;
+  --c-border-strong: #bcbcc1;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.04);
+  --shadow: 0 2px 8px rgb(0 0 0 / 0.08), 0 1px 3px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.14);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --font: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  --header-height: 68px;
+  --content-max: 1440px;
+}
