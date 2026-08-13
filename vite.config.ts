@@ -1,6 +1,33 @@
 /// <reference types="vitest/config" />
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+
+const LOGO_FILES = [
+  { name: 'logo.png', mime: 'image/png' },
+  { name: 'logo.svg', mime: 'image/svg+xml' },
+]
+
+/**
+ * Ersetzt die Verweise auf die Logodateien durch eingebettete Daten. Danach
+ * braucht die index.html keine Nachbardateien mehr und ist für sich allein
+ * lauffähig – zum Weitergeben genügt diese eine Datei.
+ */
+function embedLogos(html: string, publicDir: string): string {
+  let result = html
+  for (const { name, mime } of LOGO_FILES) {
+    let data: string
+    try {
+      data = readFileSync(resolve(publicDir, name)).toString('base64')
+    } catch {
+      continue // Datei nicht vorhanden – Verweis unverändert lassen
+    }
+    const uri = `data:${mime};base64,${data}`
+    result = result.split(`./${name}`).join(uri)
+  }
+  return result
+}
 
 /**
  * Bettet JavaScript und CSS direkt in die index.html ein.
@@ -11,9 +38,14 @@ import react from '@vitejs/plugin-react'
  * nichts nachzuladen und die Datei läuft ohne Server.
  */
 function inlineAssets(): Plugin {
+  let publicDir = 'public'
+
   return {
     name: 'turnierverwaltung-inline-assets',
     enforce: 'post',
+    configResolved(config) {
+      publicDir = config.publicDir
+    },
     generateBundle(_options, bundle) {
       const html = Object.values(bundle).find(
         (item) => item.type === 'asset' && item.fileName.endsWith('.html'),
@@ -47,7 +79,7 @@ function inlineAssets(): Plugin {
         }
       }
 
-      html.source = source
+      html.source = embedLogos(source, publicDir)
     },
   }
 }

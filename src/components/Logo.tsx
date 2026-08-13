@@ -1,19 +1,22 @@
 import { useState } from 'react';
 
 /**
- * Vereinslogo. Bevorzugt wird `public/logo.png` – liegt dort keine Datei,
- * wird auf das mitgelieferte `public/logo.svg` zurückgefallen. Zum Austauschen
- * genügt es also, die eigene Datei unter einem der beiden Namen abzulegen.
+ * Bevorzugt wird `public/logo.png`, sonst `public/logo.svg`. Zum Austauschen
+ * genügt es, die eigene Datei unter einem der beiden Namen abzulegen.
+ *
+ * Die Pfade stehen bewusst je genau einmal im Code: beim Bauen werden sie durch
+ * die eingebetteten Bilddaten ersetzt, und jede zusätzliche Fundstelle würde das
+ * Logo ein weiteres Mal in die fertige Datei schreiben.
  */
+const SOURCES = ['./logo.png', './logo.svg'];
+
 export function Logo({ size = 44, className }: { size?: number; className?: string }) {
-  // Relative Pfade, damit das Logo auch beim Öffnen per Doppelklick (file://)
-  // aus dem Ordner neben der index.html geladen wird.
-  const [src, setSrc] = useState('./logo.png');
+  const [index, setIndex] = useState(0);
 
   return (
     <img
-      src={src}
-      onError={() => setSrc((current) => (current === './logo.png' ? './logo.svg' : current))}
+      src={SOURCES[index]}
+      onError={() => setIndex((current) => Math.min(current + 1, SOURCES.length - 1))}
       width={size}
       height={size}
       alt="DC Lok Pfalzel"

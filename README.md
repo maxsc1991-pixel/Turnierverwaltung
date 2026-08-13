@@ -7,23 +7,23 @@ Endstand ins Archiv.
 Die App läuft vollständig im Browser, braucht keinen Server und keine Internetverbindung. Alle Daten
 liegen im `localStorage` des Browsers und lassen sich als JSON exportieren und importieren.
 
-## Ohne Terminal starten (empfohlen für den Turnierabend)
+## Eine Datei, ein Doppelklick (empfohlen für den Turnierabend)
 
-Einmalig auf einem Rechner mit [Node.js](https://nodejs.org) vorbereiten:
+`npm run build` erzeugt `dist/index.html` – eine **einzige, vollständig eigenständige Datei**.
+Programm, Stylesheet und Vereinslogo stecken darin. Nichts wird nachgeladen, es gibt keine
+Nachbardateien, keinen Server und keine Internetverbindung.
 
 ```bash
 npm install
 npm run build
 ```
 
-Dabei entsteht der Ordner `dist/` mit genau zwei Dateien: `index.html` und `logo.svg`. Das komplette
-Programm steckt in der HTML-Datei.
+Die entstandene `dist/index.html` an einen beliebigen Ort kopieren – Desktop, USB-Stick,
+Netzlaufwerk, E-Mail-Anhang –, nach Belieben umbenennen (z. B. `Turnierverwaltung.html`) und
+**doppelklicken**. Das war's.
 
-1. Ordner `dist/` an einen beliebigen Ort kopieren – Desktop, USB-Stick, Netzlaufwerk
-2. Darin `index.html` doppelklicken
-
-Fertig. Kein Terminal, keine Installation, kein Internet – auf dem Turnier-Laptop muss nicht einmal
-Node.js vorhanden sein.
+Node.js wird ausschließlich zum Bauen gebraucht. Der Rechner, auf dem das Turnier läuft, braucht
+nichts außer einem Browser – dort muss weder etwas installiert noch etwas eingerichtet werden.
 
 > **Wichtig zu den Daten:** Turniere und ewige Tabelle speichert der Browser lokal, getrennt je
 > Browser **und je Ablageort**. Wird der Ordner verschoben oder ein anderer Browser verwendet, ist
@@ -60,12 +60,14 @@ Vereinsfarben. Um das Originallogo zu verwenden, genügt **eine der beiden** Var
 - `public/logo.svg` durch die eigene SVG-Datei ersetzen.
 
 Am Code muss dafür nichts geändert werden; nach dem Austausch einmal `npm run build` laufen lassen.
-Genauso funktioniert es auch direkt im fertigen `dist/`-Ordner: die eigene Datei dort als `logo.png`
-neben die `index.html` legen.
+Beim Bauen wird die Datei als Bilddaten fest in die HTML eingebettet – deshalb ist ein erneuter Build
+nötig, ein Austausch im fertigen `dist/`-Ordner wirkt nicht mehr.
 
-Solange keine `logo.png` vorhanden ist, meldet die Browser-Konsole beim Laden einmal
-`logo.png – nicht gefunden`. Das ist kein Fehler, sondern der Umschaltmechanismus: die App probiert
-zuerst die PNG und nimmt dann die mitgelieferte SVG.
+**Zur Dateigröße:** Die fertige HTML ist rund 1,7 MB groß, davon entfallen etwa 1,4 MB auf das
+eingebettete Logo (`public/logo.png` liegt in 5597 × 5597 Pixeln vor, angezeigt wird es mit 44 px).
+Wer die Datei kleiner haben möchte, legt eine verkleinerte Fassung (256 px genügen) als
+`public/logo.png` ab – die HTML schrumpft damit auf etwa 350 KB. Auf die Funktion hat das keinen
+Einfluss.
 
 ## Farben
 
