@@ -107,7 +107,10 @@ export function validateResult(
       if (winnerPoints < config.cornhole.targetPoints) {
         errors.push(`Ein Leg endet erst bei ${config.cornhole.targetPoints} Punkten.`);
       }
-      if (decided) {
+      // Nur bei einem einzigen Leg muss der Sieger auch die meisten Punkte
+      // haben. Über mehrere Legs sind die Punkte Gesamtsummen, und ein 2:1 mit
+      // insgesamt weniger Punkten ist völlig regulär.
+      if (decided && bestOf(config) === 1) {
         const legWinnerIsA = legsA > legsB;
         if ((legWinnerIsA && pointsA < pointsB) || (!legWinnerIsA && pointsB < pointsA)) {
           errors.push('Punkte und Legs passen nicht zusammen – der Sieger hat weniger Punkte.');

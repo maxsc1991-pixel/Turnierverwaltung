@@ -8,17 +8,29 @@ import { StandingsTable } from '../components/StandingsTable';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
 import { formatTime } from '../engine/schedule';
-import { SPORT_LABEL, bestOf, drawPossible, type Match } from '../engine/types';
+import {
+  SPORT_LABEL,
+  applyKoSettings,
+  bestOf,
+  drawPossible,
+  hasKoPhase,
+  type Match,
+} from '../engine/types';
 import { findGroupOption } from '../engine/validation';
 import { relevantMatches } from '../engine/doubleKo';
-import { allStandings, groupPhaseComplete, tournamentComplete } from '../engine/tournament';
+import {
+  allStandings,
+  groupOrigins,
+  groupPhaseComplete,
+  tournamentComplete,
+  type GroupOrigin,
+} from '../engine/tournament';
 
 export function LivePage() {
   const navigate = useNavigate();
   const tournament = useTournamentStore((s) => s.active);
   const setResult = useTournamentStore((s) => s.setResult);
   const clearResult = useTournamentStore((s) => s.clearResult);
-  const startKo = useTournamentStore((s) => s.startKo);
   const finish = useTournamentStore((s) => s.finish);
 
   const [editing, setEditing] = useState<string | null>(null);
@@ -28,6 +40,7 @@ export function LivePage() {
   const resolver = useMemo(() => new Resolver(tournament?.matches ?? []), [tournament?.matches]);
   const byId = useMemo(() => indexMatches(tournament?.matches ?? []), [tournament?.matches]);
   const standings = useMemo(() => (tournament ? allStandings(tournament) : new Map()), [tournament]);
+  const origins = useMemo(() => (tournament ? groupOrigins(tournament) : new Map()), [tournament]);
 
   if (!tournament || tournament.stage === 'plan') {
     return (
@@ -70,7 +83,13 @@ export function LivePage() {
   const upcoming = ready.slice(config.fields);
   const pendingCount = relevant.length - played.length;
 
+  // Die KO-Phase kann eigene Spieldauer und Leg-Anzahl haben.
+  const koConfig = applyKoSettings(config, tournament.ko);
+  const configFor = (match: Match) => (match.phase === 'group' ? config : koConfig);
+  const stageConfig = inGroupPhase ? config : koConfig;
+
   const groupsDone = groupPhaseComplete(tournament);
+  const needsKo = hasKoPhase(config);
   const finished = tournamentComplete(tournament);
   const editingMatch = editing ? matches.find((m) => m.id === editing) : undefined;
 
@@ -81,19 +100,19 @@ export function LivePage() {
           <h1>{config.name || 'Turnier läuft'}</h1>
           <p className="page-head__meta">
             {SPORT_LABEL[config.sport]} · {inGroupPhase ? 'Gruppenphase' : 'KO-Phase'} · Best of{' '}
-            {bestOf(config)} · {played.length} von {relevant.length} Spielen gespielt
+            {bestOf(stageConfig)} · {played.length} von {relevant.length} Spielen gespielt
           </p>
         </div>
         <div className="btn-row">
           <button type="button" className="btn" onClick={() => navigate('/plan')}>
             Turnierplan
           </button>
-          {inGroupPhase && groupsDone && (
-            <button type="button" className="btn btn--primary" onClick={startKo}>
-              KO-Phase starten
+          {inGroupPhase && groupsDone && needsKo && (
+            <button type="button" className="btn btn--primary" onClick={() => navigate('/ko-start')}>
+              KO-Phase vorbereiten
             </button>
           )}
-          {!inGroupPhase && finished && tournament.stage !== 'finished' && (
+          {finished && tournament.stage !== 'finished' && (!inGroupPhase || !needsKo) && (
             <button
               type="button"
               className="btn btn--success"
@@ -108,13 +127,22 @@ export function LivePage() {
         </div>
       </div>
 
-      {inGroupPhase && groupsDone && (
+      {inGroupPhase && groupsDone && needsKo && (
         <div className="notice notice--success">
           Die Gruppenphase ist abgeschlossen.{' '}
           {option?.bestThirds
             ? `Es qualifizieren sich die ersten beiden jeder Gruppe sowie die ${option.bestThirds} besten Dritten.`
-            : 'Es qualifizieren sich die ersten beiden jeder Gruppe.'}{' '}
-          Über „KO-Phase starten“ wird die Setzung erzeugt.
+            : config.groupCount === 1
+              ? 'Die beiden Erstplatzierten bestreiten das Finale.'
+              : 'Es qualifizieren sich die ersten beiden jeder Gruppe.'}{' '}
+          Über „KO-Phase vorbereiten“ werden Spieldauer, Legs und die Setzung festgelegt.
+        </div>
+      )}
+
+      {inGroupPhase && groupsDone && !needsKo && (
+        <div className="notice notice--success">
+          Alle Gruppenspiele sind gespielt – die Endtabelle entscheidet. Über „Turnier abschließen“
+          wandert das Ergebnis ins Archiv.
         </div>
       )}
 
@@ -157,8 +185,9 @@ export function LivePage() {
                     <StandingsTable
                       standings={standings.get(group.id) ?? []}
                       players={players}
-                      qualifyingPlaces={2}
+                      qualifyingPlaces={needsKo ? 2 : 0}
                       thirdPlaceCandidate={(option?.bestThirds ?? 0) > 0}
+                      showPoints={config.sport === 'cornhole'}
                     />
                   </div>
                 </div>
@@ -208,6 +237,7 @@ export function LivePage() {
                         players={players}
                         byId={byId}
                         live
+                        origins={inGroupPhase ? undefined : origins}
                         onEnterResult={() => setEditing(match.id)}
                       />
                     ))}
@@ -235,6 +265,7 @@ export function LivePage() {
                         resolver={resolver}
                         players={players}
                         byId={byId}
+                        origins={inGroupPhase ? undefined : origins}
                         onEnterResult={() => setEditing(match.id)}
                       />
                     ))}
@@ -290,7 +321,7 @@ export function LivePage() {
           match={editingMatch}
           matches={matches}
           players={players}
-          config={config}
+          config={configFor(editingMatch)}
           allowDraw={editingMatch.phase === 'group' && drawPossible(config)}
           onSave={(result) => {
             setResult(editingMatch.id, result);
@@ -312,12 +343,14 @@ function UpcomingRow({
   resolver,
   players,
   byId,
+  origins,
   onEnterResult,
 }: {
   match: Match;
   resolver: Resolver;
   players: Parameters<typeof describeSlot>[2];
   byId: Map<string, Match>;
+  origins?: Map<string, GroupOrigin>;
   onEnterResult: () => void;
 }) {
   const a = describeSlot(match.a, resolver, players, byId);
@@ -325,8 +358,21 @@ function UpcomingRow({
   const winner = resolver.winner(match.id);
   const winnerId = winner.kind === 'player' ? winner.playerId : undefined;
 
-  const name = (side: typeof a) =>
-    match.result && side.playerId === winnerId ? <strong>{side.name}</strong> : side.name;
+  const origin = (side: typeof a) => {
+    const info = side.playerId ? origins?.get(side.playerId) : undefined;
+    return info ? (
+      <span className="origin-tag" title={`${info.groupName} · Platz ${info.rank}`}>
+        {info.short}
+      </span>
+    ) : null;
+  };
+
+  const name = (side: typeof a) => (
+    <>
+      {match.result && side.playerId === winnerId ? <strong>{side.name}</strong> : side.name}
+      {origin(side)}
+    </>
+  );
 
   return (
     <div className="upcoming-row">

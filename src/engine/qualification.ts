@@ -1,5 +1,5 @@
 import type { Group, Slot, Standing } from './types';
-import { rankAcrossGroups } from './standings';
+import { rankAcrossGroups, type StandingsOptions } from './standings';
 import { bracketSeedOrder } from './bracket';
 
 export interface Qualifier {
@@ -47,6 +47,7 @@ function collect(
   groups: readonly Group[],
   standingsByGroup: Map<string, Standing[]>,
   seedOf: (playerId: string) => number,
+  options: StandingsOptions,
 ): Qualifier[] {
   const rows: Array<{ standing: Standing; group: Group }> = [];
   for (const group of groups) {
@@ -58,6 +59,7 @@ function collect(
   const ordered = rankAcrossGroups(
     rows.map((r) => r.standing),
     seedOf,
+    options,
   );
 
   return ordered.map((standing, i) => {
@@ -104,14 +106,20 @@ export function qualifyFromGroups(
   standingsByGroup: Map<string, Standing[]>,
   bestThirds: number,
   seedOf: (playerId: string) => number,
+  options: StandingsOptions = {},
 ): QualificationResult {
-  const winners = collect(1, groups, standingsByGroup, seedOf);
-  const runnersUp = collect(2, groups, standingsByGroup, seedOf);
-  const thirds = collect(3, groups, standingsByGroup, seedOf).slice(0, bestThirds);
+  const winners = collect(1, groups, standingsByGroup, seedOf, options);
+  const runnersUp = collect(2, groups, standingsByGroup, seedOf, options);
+  const thirds = collect(3, groups, standingsByGroup, seedOf, options).slice(0, bestThirds);
 
   const pairs: Pair[] = [];
 
-  if (bestThirds === 0) {
+  if (groups.length === 1) {
+    // Einzelgruppe: die beiden Erstplatzierten bestreiten das Finale.
+    if (winners[0] && runnersUp[0]) {
+      pairs.push({ home: winners[0], away: runnersUp[0], strength: 1 });
+    }
+  } else if (bestThirds === 0) {
     // Kreuzmuster: Gruppe g gegen den Zweiten der Nachbargruppe (g XOR 1).
     const runnerByGroup = new Map(runnersUp.map((q) => [q.groupId, q]));
     groups.forEach((group, index) => {

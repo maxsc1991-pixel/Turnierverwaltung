@@ -12,6 +12,7 @@ import {
 } from '../engine/types';
 import {
   MAX_PARTICIPANTS,
+  MAX_SINGLE_GROUP,
   MIN_PARTICIPANTS,
   findGroupOption,
   groupOptions,
@@ -200,11 +201,16 @@ export function ConfigPage() {
                     {options.length === 0 && <option value={config.groupCount}>keine gültige Einteilung</option>}
                     {options.map((option) => (
                       <option key={option.groupCount} value={option.groupCount}>
-                        {option.groupCount} Gruppen à {option.groupSize}
+                        {option.groupCount === 1
+                          ? `1 Gruppe mit ${option.groupSize} Spielern`
+                          : `${option.groupCount} Gruppen à ${option.groupSize}`}
                       </option>
                     ))}
                   </select>
-                  <span className="field__hint">Gruppen × Stärke muss die Teilnehmerzahl ergeben.</span>
+                  <span className="field__hint">
+                    Gruppen × Stärke muss die Teilnehmerzahl ergeben. Eine einzelne Gruppe ist bis{' '}
+                    {MAX_SINGLE_GROUP} Spieler möglich.
+                  </span>
                 </div>
                 <div className="field">
                   <span className="field-label">Gruppenstärke</span>
@@ -215,7 +221,37 @@ export function ConfigPage() {
             )}
           </div>
 
-          {config.format === 'groups' && selectedOption && (
+          {config.format === 'groups' && selectedOption && config.groupCount === 1 && (
+            <>
+              <label className="row">
+                <input
+                  type="checkbox"
+                  checked={config.groupFinal}
+                  onChange={(e) => setConfig({ groupFinal: e.target.checked })}
+                  style={{ width: 'auto' }}
+                />
+                <span>Nach der Gruppenphase ein Finale austragen</span>
+              </label>
+              <div className="notice notice--success">
+                <div>
+                  {config.groupFinal ? (
+                    <>
+                      <strong>Jeder gegen jeden, danach ein Finale</strong> – die beiden
+                      Erstplatzierten der Gruppe spielen den Sieger aus. Dritter wird der Dritte der
+                      Tabelle.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Reine Gruppenphase</strong> – jeder gegen jeden, die Endtabelle
+                      entscheidet. Nach dem letzten Spiel ist das Turnier beendet.
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {config.format === 'groups' && selectedOption && config.groupCount > 1 && (
             <div className="notice notice--success">
               <div>
                 <strong>
@@ -230,7 +266,7 @@ export function ConfigPage() {
             </div>
           )}
 
-          {config.format !== 'double_ko' && (
+          {config.format !== 'double_ko' && !(config.format === 'groups' && config.groupCount === 1) && (
             <label className="row">
               <input
                 type="checkbox"

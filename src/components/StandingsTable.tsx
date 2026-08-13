@@ -7,6 +7,10 @@ interface Props {
   qualifyingPlaces?: number;
   /** Platz, der als möglicher "bester Dritter" markiert wird. */
   thirdPlaceCandidate?: boolean;
+  /** Beim Cornhole zählen die erzielten Punkte mit und werden mit angezeigt. */
+  showPoints?: boolean;
+  /** Kompakte Darstellung für die Anzeigetafel. */
+  compact?: boolean;
 }
 
 export function StandingsTable({
@@ -14,12 +18,14 @@ export function StandingsTable({
   players,
   qualifyingPlaces = 0,
   thirdPlaceCandidate = false,
+  showPoints = false,
+  compact = false,
 }: Props) {
   const nameOf = (id: string) => players.find((p) => p.id === id);
 
   return (
     <div className="table-scroll">
-      <table className="standings">
+      <table className={compact ? 'standings standings--compact' : 'standings'}>
         <thead>
           <tr>
             <th aria-label="Platz" />
@@ -36,6 +42,16 @@ export function StandingsTable({
             <th className="num" title="Leg-Differenz">
               Diff
             </th>
+            {showPoints && (
+              <>
+                <th className="num" title="Erzielte und kassierte Punkte">
+                  Punkte
+                </th>
+                <th className="num" title="Punktdifferenz – entscheidet vor dem direkten Vergleich">
+                  PD
+                </th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -51,7 +67,9 @@ export function StandingsTable({
                 <td>{row.rank}</td>
                 <td>
                   <span className="standings__name">{player?.name ?? '–'}</span>
-                  {player?.club && <span className="standings__club">{player.club}</span>}
+                  {player?.club && !compact && (
+                    <span className="standings__club">{player.club}</span>
+                  )}
                   {row.tiebreak && <span className="standings__tiebreak"> · {row.tiebreak}</span>}
                 </td>
                 <td className="num">{row.played}</td>
@@ -65,6 +83,17 @@ export function StandingsTable({
                   {row.legDiff > 0 ? '+' : ''}
                   {row.legDiff}
                 </td>
+                {showPoints && (
+                  <>
+                    <td className="num mono">
+                      {row.pointsFor}:{row.pointsAgainst}
+                    </td>
+                    <td className="num mono">
+                      {row.pointsDiff > 0 ? '+' : ''}
+                      {row.pointsDiff}
+                    </td>
+                  </>
+                )}
               </tr>
             );
           })}

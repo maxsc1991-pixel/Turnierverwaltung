@@ -2,7 +2,9 @@ import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { Logo } from './components/Logo';
 import { ConfigPage } from './pages/ConfigPage';
 import { PlanPage } from './pages/PlanPage';
+import { KoSetupPage } from './pages/KoSetupPage';
 import { LivePage } from './pages/LivePage';
+import { DisplayPage } from './pages/DisplayPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { useTournamentStore } from './store/useTournamentStore';
 
@@ -34,6 +36,9 @@ function Header() {
           <NavLink to="/live" className={linkClass} aria-disabled={!liveReady}>
             Turnier
           </NavLink>
+          <NavLink to="/anzeige" className={linkClass} aria-disabled={!liveReady}>
+            Anzeige
+          </NavLink>
           <NavLink to="/historie" className={linkClass}>
             Ewige Tabelle
           </NavLink>
@@ -52,7 +57,9 @@ export default function App() {
           <Routes>
             <Route path="/" element={<ConfigPage />} />
             <Route path="/plan" element={<PlanPage />} />
+            <Route path="/ko-start" element={<KoSetupPage />} />
             <Route path="/live" element={<LivePage />} />
+            <Route path="/anzeige" element={<DisplayPage />} />
             <Route path="/historie" element={<HistoryPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -2,6 +2,7 @@ import type { Match, Player } from '../engine/types';
 import type { Resolver } from '../engine/resolve';
 import { describeSlot, formatResult } from '../engine/labels';
 import { formatTime } from '../engine/schedule';
+import type { GroupOrigin } from '../engine/tournament';
 
 interface Props {
   match: Match;
@@ -10,9 +11,19 @@ interface Props {
   byId: Map<string, Match>;
   live?: boolean;
   onEnterResult?: () => void;
+  /** Gruppe und Platzierung, aus der der Spieler kommt (KO-Phase). */
+  origins?: Map<string, GroupOrigin>;
 }
 
-export function MatchCard({ match, resolver, players, byId, live = false, onEnterResult }: Props) {
+export function MatchCard({
+  match,
+  resolver,
+  players,
+  byId,
+  live = false,
+  onEnterResult,
+  origins,
+}: Props) {
   const a = describeSlot(match.a, resolver, players, byId);
   const b = describeSlot(match.b, resolver, players, byId);
   const winner = resolver.winner(match.id);
@@ -37,7 +48,10 @@ export function MatchCard({ match, resolver, players, byId, live = false, onEnte
 
         <div className={sideClass(a)}>
           <span className="match-side__name">
-            <strong>{a.name}</strong>
+            <strong>
+              {a.name}
+              <OriginTag origins={origins} playerId={a.playerId} />
+            </strong>
             {a.club && <span className="match-side__club">{a.club}</span>}
           </span>
           <span className="match-side__legs">{done ? match.result?.legsA : '–'}</span>
@@ -47,7 +61,10 @@ export function MatchCard({ match, resolver, players, byId, live = false, onEnte
 
         <div className={sideClass(b)}>
           <span className="match-side__name">
-            <strong>{b.name}</strong>
+            <strong>
+              {b.name}
+              <OriginTag origins={origins} playerId={b.playerId} />
+            </strong>
             {b.club && <span className="match-side__club">{b.club}</span>}
           </span>
           <span className="match-side__legs">{done ? match.result?.legsB : '–'}</span>
@@ -72,5 +89,21 @@ export function MatchCard({ match, resolver, players, byId, live = false, onEnte
         </div>
       )}
     </div>
+  );
+}
+
+function OriginTag({
+  origins,
+  playerId,
+}: {
+  origins?: Map<string, GroupOrigin>;
+  playerId?: string;
+}) {
+  const origin = playerId ? origins?.get(playerId) : undefined;
+  if (!origin) return null;
+  return (
+    <span className="origin-tag" title={`${origin.groupName} · Platz ${origin.rank}`}>
+      {origin.short}
+    </span>
   );
 }

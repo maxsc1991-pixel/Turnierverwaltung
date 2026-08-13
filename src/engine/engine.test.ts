@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Match, Player, TournamentConfig } from './types';
-import { defaultConfig } from './types';
+import type { Match, Player, Standing, TournamentConfig } from './types';
+import { applyKoSettings, bestOf, defaultConfig, hasKoPhase } from './types';
 import { groupOptions, roundNames, validateConfig, hasErrors, findGroupOption } from './validation';
 import { buildGroupMatches, drawGroups, roundRobinRounds } from './groups';
 import { computeStandings } from './standings';
@@ -16,6 +16,7 @@ import {
   createTournament,
   seedOf,
   startKoPhase,
+  tournamentComplete,
 } from './tournament';
 
 function makePlayers(count: number): Player[] {
@@ -523,5 +524,187 @@ describe('Freilose bei krummen Teilnehmerzahlen', () => {
     for (const match of tournament.matches) {
       if (resolver.isWalkover(match)) expect(match.scheduledAt).toBeUndefined();
     }
+  });
+});
+
+describe('Einzelne Gruppe', () => {
+  it('erlaubt 1 Gruppe von 3 bis 10 Spielern', () => {
+    for (const count of [3, 4, 6, 10]) {
+      expect(findGroupOption(count, 1), `${count} Teilnehmer`).toMatchObject({
+        groupCount: 1,
+        groupSize: count,
+        qualifiers: 2,
+        bestThirds: 0,
+      });
+    }
+    expect(findGroupOption(11, 1)).toBeUndefined();
+    expect(findGroupOption(2, 1)).toBeUndefined();
+  });
+
+  it('führt mit Finale zu genau einem Endspiel der beiden Erstplatzierten', () => {
+    const players = makePlayers(6);
+    const tournament = createTournament(
+      config({ format: 'groups', participants: 6, groupCount: 1, groupSize: 6, groupFinal: true }),
+      players,
+      5,
+    );
+
+    // Ohne diese Prüfung liefe der Test auch bei leerer Gruppenphase durch:
+    // bei lauter Nullwerten entscheidet der Losentscheid nach Setzliste und
+    // ergibt zufällig ebenfalls p1 vor p2.
+    expect(tournament.groups).toHaveLength(1);
+    expect(tournament.groups[0].playerIds).toHaveLength(6);
+    expect(tournament.matches.filter((m) => m.phase === 'group')).toHaveLength(15);
+    expect(tournament.matches.every((m) => m.scheduledAt)).toBe(true);
+
+    // Kleinere Nummer gewinnt -> p1 wird Erster, p2 Zweiter.
+    const afterGroups = {
+      ...tournament,
+      stage: 'group' as const,
+      matches: tournament.matches.map((m) => {
+        const a = Number((m.a as { playerId: string }).playerId.slice(1));
+        const b = Number((m.b as { playerId: string }).playerId.slice(1));
+        return play(m, a < b ? 'a' : 'b');
+      }),
+    };
+
+    expect(hasKoPhase(afterGroups.config)).toBe(true);
+    const standings = allStandings(afterGroups).get('g1') as Standing[];
+    expect(standings[0]).toMatchObject({ playerId: 'p1', played: 5, points: 10 });
+    expect(standings.slice(0, 2).map((s) => s.playerId)).toEqual(['p1', 'p2']);
+
+    const started = startKoPhase(afterGroups);
+    const koMatches = started.matches.filter((m) => m.phase === 'ko');
+    expect(koMatches).toHaveLength(1);
+    expect(koMatches[0].roundLabel).toBe('Finale');
+
+    const resolver = new Resolver(started.matches);
+    expect(resolver.playerIds(koMatches[0]).sort()).toEqual(['p1', 'p2']);
+  });
+
+  it('endet ohne Finale mit dem letzten Gruppenspiel', () => {
+    const players = makePlayers(4);
+    const tournament = createTournament(
+      config({ format: 'groups', participants: 4, groupCount: 1, groupSize: 4, groupFinal: false }),
+      players,
+      6,
+    );
+
+    expect(hasKoPhase(tournament.config)).toBe(false);
+    expect(tournament.matches.filter((m) => m.phase === 'group')).toHaveLength(6);
+
+    const played = {
+      ...tournament,
+      stage: 'group' as const,
+      matches: tournament.matches.map((m) => {
+        const a = Number((m.a as { playerId: string }).playerId.slice(1));
+        const b = Number((m.b as { playerId: string }).playerId.slice(1));
+        return play(m, a < b ? 'a' : 'b');
+      }),
+    };
+
+    expect(tournamentComplete(played)).toBe(true);
+    const ranking = computeFinalRanking(played);
+    expect(ranking.find((r) => r.rank === 1)?.playerId).toBe('p1');
+    expect(new Set(ranking.map((r) => r.playerId)).size).toBe(4);
+  });
+});
+
+describe('Cornhole – Punkte in der Wertung', () => {
+  const players = makePlayers(3);
+  const seed = seedOf(players);
+
+  function match(id: string, a: string, b: string, legsA: number, legsB: number, pa: number, pb: number): Match {
+    return {
+      id,
+      phase: 'group',
+      round: 1,
+      indexInRound: 0,
+      groupId: 'g1',
+      label: 'Test',
+      roundLabel: 'Runde 1',
+      a: { kind: 'player', playerId: a },
+      b: { kind: 'player', playerId: b },
+      result: { legsA, legsB, pointsA: pa, pointsB: pb },
+    };
+  }
+
+  it('summiert erzielte und kassierte Punkte', () => {
+    const table = computeStandings(
+      ['p1', 'p2'],
+      [match('m1', 'p1', 'p2', 1, 0, 21, 12)],
+      seed,
+      { usePoints: true },
+    );
+    expect(table[0]).toMatchObject({ playerId: 'p1', pointsFor: 21, pointsAgainst: 12, pointsDiff: 9 });
+    expect(table[1]).toMatchObject({ playerId: 'p2', pointsFor: 12, pointsAgainst: 21, pointsDiff: -9 });
+  });
+
+  it('entscheidet bei gleicher Leg-Differenz über die Punktdifferenz', () => {
+    // p1 und p2 haben je einen Sieg gegen p3, gleiche Legdifferenz.
+    const matches = [
+      match('m1', 'p1', 'p3', 1, 0, 21, 5),
+      match('m2', 'p2', 'p3', 1, 0, 21, 19),
+    ];
+    const table = computeStandings(['p1', 'p2', 'p3'], matches, seed, { usePoints: true });
+    expect(table[0].playerId).toBe('p1');
+    expect(table[0].pointsDiff).toBe(16);
+    expect(table[1].playerId).toBe('p2');
+  });
+
+  it('ignoriert die Punkte, wenn die Sportart sie nicht wertet', () => {
+    const matches = [
+      match('m1', 'p1', 'p3', 1, 0, 21, 5),
+      match('m2', 'p2', 'p3', 1, 0, 21, 19),
+    ];
+    const ohne = computeStandings(['p1', 'p2', 'p3'], matches, seed);
+    // Ohne Punktwertung sind p1 und p2 gleichauf und der direkte Vergleich
+    // greift nicht (sie haben nicht gegeneinander gespielt).
+    expect(ohne[0].points).toBe(ohne[1].points);
+    expect(ohne[0].legDiff).toBe(ohne[1].legDiff);
+    expect(ohne[0].tiebreak).toBeDefined();
+  });
+});
+
+describe('Eigene Einstellungen der KO-Phase', () => {
+  it('überschreibt Legs, Spieldauer und Felder nur für die KO-Spiele', () => {
+    const base = config({ sport: 'cornhole', cornhole: { legs: 1, targetPoints: 21 }, avgMatchMinutes: 10, fields: 4 });
+    const ko = applyKoSettings(base, { avgMatchMinutes: 25, legs: 3, fields: 2 });
+
+    expect(bestOf(base)).toBe(1);
+    expect(bestOf(ko)).toBe(3);
+    expect(ko.avgMatchMinutes).toBe(25);
+    expect(ko.fields).toBe(2);
+    // Die Ausgangskonfiguration bleibt unangetastet.
+    expect(base.avgMatchMinutes).toBe(10);
+    expect(base.cornhole.legs).toBe(1);
+  });
+
+  it('terminiert die KO-Phase mit der eigenen Spieldauer', () => {
+    const players = makePlayers(8);
+    const tournament = createTournament(
+      config({ format: 'groups', participants: 8, groupCount: 2, groupSize: 4, avgMatchMinutes: 10, fields: 2, thirdPlaceMatch: false }),
+      players,
+      3,
+    );
+    const afterGroups = {
+      ...tournament,
+      stage: 'group' as const,
+      matches: tournament.matches.map((m) => {
+        const a = Number((m.a as { playerId: string }).playerId.slice(1));
+        const b = Number((m.b as { playerId: string }).playerId.slice(1));
+        return play(m, a < b ? 'a' : 'b');
+      }),
+    };
+
+    const started = startKoPhase(afterGroups, { avgMatchMinutes: 30, legs: 5, fields: 1, startTime: '21:00' });
+    const ko = started.matches.filter((m) => m.phase === 'ko' && m.scheduledAt);
+
+    expect(started.ko?.legs).toBe(5);
+    // Ein einziges Feld: die Halbfinals liegen 30 Minuten auseinander.
+    const times = ko.filter((m) => m.round === 1).map((m) => new Date(m.scheduledAt as string).getTime()).sort();
+    expect((times[1] - times[0]) / 60000).toBe(30);
+    expect(new Date(times[0]).getHours()).toBe(21);
+    expect(ko.every((m) => m.field === 1)).toBe(true);
   });
 });

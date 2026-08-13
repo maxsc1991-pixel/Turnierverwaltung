@@ -2,6 +2,9 @@ import type { TournamentConfig } from './types';
 
 export const MIN_PARTICIPANTS = 1;
 export const MAX_PARTICIPANTS = 128;
+/** Eine einzelne Gruppe ist nur bis zu dieser Teilnehmerzahl sinnvoll. */
+export const MIN_SINGLE_GROUP = 3;
+export const MAX_SINGLE_GROUP = 10;
 
 export interface ValidationIssue {
   level: 'error' | 'warning';
@@ -38,6 +41,13 @@ export interface GroupOption {
  */
 export function groupOptions(participants: number): GroupOption[] {
   const options: GroupOption[] = [];
+
+  // Einzelgruppe: jeder gegen jeden. Danach entweder ein Finale der beiden
+  // Erstplatzierten oder – je nach Einstellung – gar keine KO-Runde.
+  if (participants >= MIN_SINGLE_GROUP && participants <= MAX_SINGLE_GROUP) {
+    options.push({ groupCount: 1, groupSize: participants, qualifiers: 2, bestThirds: 0 });
+  }
+
   if (participants > 64 || participants < 4) return options;
 
   for (let groupCount = 2; groupCount <= participants / 3; groupCount++) {

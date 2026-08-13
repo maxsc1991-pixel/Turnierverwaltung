@@ -81,6 +81,19 @@ export interface CornholeSettings {
   targetPoints: number;
 }
 
+/**
+ * Abweichende Einstellungen für die KO-Phase. Werden auf der KO-Konfigurations-
+ * seite erfasst, wenn die Gruppenphase abgeschlossen ist.
+ */
+export interface KoSettings {
+  avgMatchMinutes: number;
+  /** Best of N für die KO-Spiele. */
+  legs: number;
+  fields: number;
+  /** "19:30" – leer bedeutet: direkt im Anschluss an die Gruppenphase. */
+  startTime?: string;
+}
+
 export interface TournamentConfig {
   name: string;
   sport: Sport;
@@ -95,6 +108,11 @@ export interface TournamentConfig {
   groupCount: number;
   groupSize: number;
   thirdPlaceMatch: boolean;
+  /**
+   * Nur bei genau einer Gruppe relevant: Spielen die beiden Erstplatzierten
+   * anschließend ein Finale, oder entscheidet allein die Tabelle?
+   */
+  groupFinal: boolean;
   dart: DartSettings;
   cornhole: CornholeSettings;
 }
@@ -118,6 +136,8 @@ export interface Tournament {
   matches: Match[];
   stage: Stage;
   finalRanking?: FinalRank[];
+  /** Einstellungen der KO-Phase, sobald sie gestartet wurde. */
+  ko?: KoSettings;
 }
 
 export interface Standing {
@@ -130,6 +150,10 @@ export interface Standing {
   legsFor: number;
   legsAgainst: number;
   legDiff: number;
+  /** Erzielte Punkte – beim Cornhole Teil der Wertung. */
+  pointsFor: number;
+  pointsAgainst: number;
+  pointsDiff: number;
   rank: number;
   /** Gesetzt, wenn die Platzierung erst durch ein späteres Kriterium fiel. */
   tiebreak?: string;
@@ -149,6 +173,7 @@ export function defaultConfig(): TournamentConfig {
     groupCount: 4,
     groupSize: 4,
     thirdPlaceMatch: true,
+    groupFinal: true,
     dart: { game: '501', legs: { '301': 3, '501': 3, cricket: 3 } },
     cornhole: { legs: 3, targetPoints: 21 },
   };
@@ -175,6 +200,31 @@ export function drawPossible(config: TournamentConfig): boolean {
  */
 export function requiresPoints(config: TournamentConfig): boolean {
   return config.sport === 'cornhole' || bestOf(config) === 1;
+}
+
+/** Folgt auf die Gruppenphase überhaupt eine KO-Runde? */
+export function hasKoPhase(config: TournamentConfig): boolean {
+  if (config.format !== 'groups') return true;
+  return config.groupCount > 1 || config.groupFinal;
+}
+
+/**
+ * Die für eine Phase geltende Konfiguration. In der KO-Phase überschreiben die
+ * dort erfassten Werte Spieldauer, Felder und Leg-Anzahl – alles Weitere bleibt
+ * unverändert, sodass jede bestehende Auswertung unverändert weiterarbeitet.
+ */
+export function applyKoSettings(config: TournamentConfig, ko: KoSettings | undefined): TournamentConfig {
+  if (!ko) return config;
+  const base: TournamentConfig = {
+    ...config,
+    avgMatchMinutes: ko.avgMatchMinutes,
+    fields: ko.fields,
+    startTime: ko.startTime || config.startTime,
+  };
+  if (config.sport === 'dart') {
+    return { ...base, dart: { ...config.dart, legs: { ...config.dart.legs, [config.dart.game]: ko.legs } } };
+  }
+  return { ...base, cornhole: { ...config.cornhole, legs: ko.legs } };
 }
 
 export const DART_GAME_LABEL: Record<DartGame, string> = {

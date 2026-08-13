@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { MatchResult, Player, Tournament, TournamentConfig } from '../engine/types';
+import type { KoSettings, MatchResult, Player, Tournament, TournamentConfig } from '../engine/types';
 import { defaultConfig } from '../engine/types';
 import { newPlayerId, parsePlayerList, reseed } from '../engine/players';
 import { buildGroupMatches } from '../engine/groups';
@@ -48,7 +48,7 @@ interface AppState {
 
   setResult: (matchId: string, result: MatchResult) => void;
   clearResult: (matchId: string) => void;
-  startKo: () => void;
+  startKo: (ko?: KoSettings) => void;
   finish: () => void;
 
   discardActive: () => void;
@@ -245,7 +245,7 @@ export const useTournamentStore = create<AppState>()(
           }),
         ),
 
-      startKo: () => set((s) => updateActive(s, startKoPhase)),
+      startKo: (ko) => set((s) => updateActive(s, (t) => startKoPhase(t, ko))),
 
       finish: () =>
         set((s) => {

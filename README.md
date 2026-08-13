@@ -95,8 +95,15 @@ tatsächlich gebraucht wird.
 
 ### Gruppenphase + KO
 Jeder gegen jeden in Gruppen, danach eine KO-Runde. Gruppenanzahl × Gruppenstärke muss der
-Teilnehmerzahl entsprechen. Die Zahl der Qualifikanten muss eine Zweierpotenz ergeben – dafür gilt
-eine einzige Regel:
+Teilnehmerzahl entsprechen.
+
+**Eine einzelne Gruppe** ist von 3 bis 10 Spielern möglich – jeder gegen jeden. Ein Schalter auf der
+Konfigurationsseite legt fest, was danach passiert: entweder bestreiten die beiden Erstplatzierten
+ein **Finale** (Dritter wird der Tabellendritte), oder es gibt **keine KO-Runde** und die Endtabelle
+entscheidet. Mit dem letzten Gruppenspiel ist das Turnier dann beendet.
+
+**Ab zwei Gruppen** muss die Zahl der Qualifikanten eine Zweierpotenz ergeben – dafür gilt eine
+einzige Regel:
 
 ```
 Qualifikanten = 2 × Gruppen + beste Dritte
@@ -142,6 +149,14 @@ Schnelleingabe akzeptiert Kurzformen wie `1:0 (21:17)`.
 **Wertung:** Sieg = 2 Punkte, Unentschieden = 1, Niederlage = 0. Die Gruppenplatzierung entscheidet
 sich nach **Punkte → Leg-Differenz → direkter Vergleich → gewonnene Legs → Losentscheid**.
 
+Beim **Cornhole** zählen zusätzlich die erzielten Punkte: die Reihenfolge lautet dort
+**Punkte → Leg-Differenz → Punktdifferenz → direkter Vergleich → Losentscheid**. Das ist nötig, weil
+die Leg-Differenz beim Cornhole grob ausfällt (bei Best of 1 nur ±1) und sonst zu viele
+Gleichstände entstünden. Die Gruppentabelle zeigt dafür zwei zusätzliche Spalten: *Punkte*
+(erzielt:kassiert) und *PD* (Punktdifferenz). Werden mehrere Legs gespielt, ist die Punkteingabe die
+Gesamtsumme über alle Legs – ein 2:1-Sieg mit insgesamt weniger Punkten ist dabei ausdrücklich
+zulässig.
+
 ## Spielfelder festlegen
 
 Auf der Seite *Turnierplan* trägt jede Gruppe im Kopf ein Auswahlfeld **Feld**:
@@ -158,6 +173,31 @@ zwei Spiele zur selben Zeit auf demselben Feld –, erscheint über der Tabelle 
 betroffenen Feldern und Zeiten. Über *Neu auslosen* wird der Spielplan wieder sauber verteilt.
 
 Während des Turniers zeigt jede Gruppe ihr festes Feld als rote Markierung neben dem Gruppennamen.
+
+## Ablauf einer Gruppenphase mit KO-Runde
+
+Ist die Gruppenphase abgeschlossen, führt der Weg über die Seite **KO-Phase vorbereiten**. Dort
+lassen sich vor dem Start festlegen:
+
+- durchschnittliche Spieldauer der KO-Spiele
+- Leg-Anzahl (Best of N) – in der KO-Phase oft höher als in der Gruppenphase
+- Anzahl der Spielfelder – am Turnierende stehen häufig weniger Boards zur Verfügung
+- Startzeit; bleibt sie leer, schließt die KO-Phase direkt an das letzte Gruppenspiel an
+
+Die Werte gelten ausschließlich für die KO-Spiele; die Gruppenphase und ihre Ergebnisse bleiben
+unberührt. Zur Kontrolle zeigt die Seite die aus den Endtabellen ermittelte Setzung der ersten Runde
+sowie alle Gruppentabellen.
+
+In der KO-Phase steht hinter jedem Namen, woher der Spieler kommt: **A1** bedeutet Sieger der
+Gruppe A, **B2** Zweiter der Gruppe B, **C3** ein nachgerückter Gruppendritter.
+
+## Anzeigeseite für die Teilnehmer
+
+Die Seite **Anzeige** stellt den Turnierstand kompakt und ohne Bedienelemente dar – gedacht für einen
+zweiten Bildschirm, einen Beamer oder ein Tablet im Gastraum. Sie zeigt die gerade laufenden Spiele
+groß hervorgehoben, die Gruppentabellen, die nächsten Paarungen mit Uhrzeit und Feld, den
+Turnierbaum der KO-Phase und am Ende das Podest. Sie aktualisiert sich automatisch, sobald in der
+Turnieransicht ein Ergebnis eingetragen wird.
 
 ## Spielplan und faire Pausen
 

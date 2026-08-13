@@ -138,7 +138,8 @@ export function ResultDialog({
             {needsPoints && (
               <div className="field">
                 <span className="field-label">
-                  Punkte {config.sport === 'cornhole' ? `(bis ${config.cornhole.targetPoints})` : ''}
+                  {bestOf(config) > 1 ? 'Punkte gesamt' : 'Punkte'}
+                  {config.sport === 'cornhole' ? ` (Leg bis ${config.cornhole.targetPoints})` : ''}
                 </span>
                 <div className="score-input">
                   <input

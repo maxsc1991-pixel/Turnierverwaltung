@@ -1,6 +1,7 @@
 import type {
   FinalRank,
   Group,
+  KoSettings,
   Match,
   Player,
   Slot,
@@ -8,13 +9,14 @@ import type {
   Tournament,
   TournamentConfig,
 } from './types';
+import { applyKoSettings, hasKoPhase } from './types';
 import { buildSingleElimination, buildThirdPlaceMatch, seedIntoBracket } from './bracket';
 import { buildDoubleElimination, isBracketResetNeeded } from './doubleKo';
 import { buildGroupMatches, drawGroups } from './groups';
 import { qualifyFromGroups } from './qualification';
 import { Resolver } from './resolve';
 import { createRng, newSeed, shuffle } from './rng';
-import { estimatedEnd, groupFieldMap, scheduleMatches } from './schedule';
+import { estimatedEnd, groupFieldMap, scheduleMatches, startDate } from './schedule';
 import { computeStandings } from './standings';
 import { findGroupOption } from './validation';
 
@@ -74,11 +76,50 @@ export function redraw(tournament: Tournament, seed = newSeed()): Tournament {
   return { ...tournament, seed, groups, matches };
 }
 
+/** Beim Cornhole zaehlen die erzielten Punkte in der Gruppenwertung mit. */
+export function standingsOptions(config: TournamentConfig) {
+  return { usePoints: config.sport === 'cornhole' };
+}
+
 export function standingsFor(tournament: Tournament, groupId: string): Standing[] {
   const group = tournament.groups.find((g) => g.id === groupId);
   if (!group) return [];
   const matches = tournament.matches.filter((m) => m.groupId === groupId);
-  return computeStandings(group.playerIds, matches, seedOf(tournament.players));
+  return computeStandings(
+    group.playerIds,
+    matches,
+    seedOf(tournament.players),
+    standingsOptions(tournament.config),
+  );
+}
+
+export interface GroupOrigin {
+  groupName: string;
+  /** Kurzform fuer enge Anzeigen, z.B. "A2". */
+  short: string;
+  rank: number;
+}
+
+/**
+ * Woher kommt ein Spieler? Wird in der KO-Phase hinter jedem Namen angezeigt.
+ * Die Angabe wird aus den Gruppentabellen abgeleitet und bleibt damit auch bei
+ * nachtraeglichen Ergebniskorrekturen stimmig.
+ */
+export function groupOrigins(tournament: Tournament): Map<string, GroupOrigin> {
+  const origins = new Map<string, GroupOrigin>();
+  if (tournament.config.format !== 'groups') return origins;
+
+  for (const group of tournament.groups) {
+    const letter = group.name.replace(/^Gruppe\s*/, '');
+    for (const row of standingsFor(tournament, group.id)) {
+      origins.set(row.playerId, {
+        groupName: group.name,
+        short: `${letter}${row.rank}`,
+        rank: row.rank,
+      });
+    }
+  }
+  return origins;
 }
 
 export function allStandings(tournament: Tournament): Map<string, Standing[]> {
@@ -94,7 +135,8 @@ export function groupPhaseComplete(tournament: Tournament): boolean {
  * Startet die KO-Phase: die Gruppenplatzierten werden gesetzt, das Bracket
  * gebaut und im Anschluss an die Gruppenphase terminiert.
  */
-export function startKoPhase(tournament: Tournament): Tournament {
+export function startKoPhase(tournament: Tournament, ko?: KoSettings): Tournament {
+  const koConfig = applyKoSettings(tournament.config, ko);
   const option = findGroupOption(tournament.config.participants, tournament.config.groupCount);
   const bestThirds = option?.bestThirds ?? 0;
 
@@ -103,6 +145,7 @@ export function startKoPhase(tournament: Tournament): Tournament {
     allStandings(tournament),
     bestThirds,
     seedOf(tournament.players),
+    standingsOptions(tournament.config),
   );
 
   const bracket = buildSingleElimination(positions, { idPrefix: 'ko', phase: 'ko' });
@@ -110,10 +153,14 @@ export function startKoPhase(tournament: Tournament): Tournament {
   const koMatches = third ? [...bracket, third] : bracket;
 
   const groupMatches = tournament.matches.filter((m) => m.phase === 'group');
-  const beginAt = estimatedEnd(groupMatches, tournament.config) ?? undefined;
-  const scheduled = scheduleMatches(koMatches, tournament.config, { beginAt });
+  // Ohne eigene Startzeit schliesst die KO-Phase direkt an das letzte
+  // Gruppenspiel an; mit Startzeit beginnt sie zur vorgegebenen Uhrzeit.
+  const beginAt = ko?.startTime
+    ? startDate(ko.startTime)
+    : (estimatedEnd(groupMatches, tournament.config) ?? undefined);
+  const scheduled = scheduleMatches(koMatches, koConfig, { beginAt });
 
-  return { ...tournament, stage: 'ko', matches: [...groupMatches, ...scheduled] };
+  return { ...tournament, stage: 'ko', ko, matches: [...groupMatches, ...scheduled] };
 }
 
 /** Das entscheidende letzte Spiel – je nach Modus Finale, Grand Final oder Rückspiel. */
@@ -131,6 +178,9 @@ export function decidingMatch(tournament: Tournament): Match | undefined {
 }
 
 export function tournamentComplete(tournament: Tournament): boolean {
+  // Einzelgruppe ohne Finale: mit dem letzten Gruppenspiel steht der Sieger fest.
+  if (!hasKoPhase(tournament.config)) return groupPhaseComplete(tournament);
+
   const deciding = decidingMatch(tournament);
   if (!deciding?.result) return false;
   if (tournament.config.thirdPlaceMatch) {

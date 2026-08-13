@@ -2,6 +2,7 @@ import type { Match, Phase, Player, Tournament } from '../engine/types';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
 import { isBracketResetNeeded } from '../engine/doubleKo';
+import { groupOrigins, type GroupOrigin } from '../engine/tournament';
 
 interface Props {
   tournament: Tournament;
@@ -13,6 +14,9 @@ export function BracketView({ tournament, phases }: Props) {
   const resolver = new Resolver(tournament.matches);
   const byId = indexMatches(tournament.matches);
   const needsReset = isBracketResetNeeded(tournament.matches, resolver);
+
+  // Herkunft aus der Gruppenphase, damit hinter jedem Namen "A2" o.ä. steht.
+  const origins = groupOrigins(tournament);
 
   const visible = tournament.matches.filter((m) => {
     if (phases && !phases.includes(m.phase)) return false;
@@ -40,6 +44,7 @@ export function BracketView({ tournament, phases }: Props) {
                     resolver={resolver}
                     players={tournament.players}
                     byId={byId}
+                    origins={origins}
                   />
                 ))}
               </div>
@@ -56,11 +61,13 @@ function BracketMatch({
   resolver,
   players,
   byId,
+  origins,
 }: {
   match: Match;
   resolver: Resolver;
   players: readonly Player[];
   byId: Map<string, Match>;
+  origins: Map<string, GroupOrigin>;
 }) {
   const a = describeSlot(match.a, resolver, players, byId);
   const b = describeSlot(match.b, resolver, players, byId);
@@ -77,14 +84,37 @@ function BracketMatch({
   return (
     <div className="bracket-match" title={match.label}>
       <div className={sideClass(a)}>
-        <span>{a.name}</span>
+        <span>
+          {a.name}
+          <Origin origins={origins} playerId={a.playerId} />
+        </span>
         <span className="bracket-match__legs">{match.result ? match.result.legsA : ''}</span>
       </div>
       <div className={sideClass(b)}>
-        <span>{b.name}</span>
+        <span>
+          {b.name}
+          <Origin origins={origins} playerId={b.playerId} />
+        </span>
         <span className="bracket-match__legs">{match.result ? match.result.legsB : ''}</span>
       </div>
     </div>
+  );
+}
+
+/** Kurzhinweis auf Gruppe und Platzierung, z.B. "A2". */
+function Origin({
+  origins,
+  playerId,
+}: {
+  origins: Map<string, GroupOrigin>;
+  playerId?: string;
+}) {
+  const origin = playerId ? origins.get(playerId) : undefined;
+  if (!origin) return null;
+  return (
+    <span className="origin-tag" title={`${origin.groupName} · Platz ${origin.rank}`}>
+      {origin.short}
+    </span>
   );
 }
 
