@@ -7,22 +7,48 @@ Endstand ins Archiv.
 Die App läuft vollständig im Browser, braucht keinen Server und keine Internetverbindung. Alle Daten
 liegen im `localStorage` des Browsers und lassen sich als JSON exportieren und importieren.
 
-## Schnellstart
+## Ohne Terminal starten (empfohlen für den Turnierabend)
+
+Einmalig auf einem Rechner mit [Node.js](https://nodejs.org) vorbereiten:
+
+```bash
+npm install
+npm run build
+```
+
+Dabei entsteht der Ordner `dist/` mit genau zwei Dateien: `index.html` und `logo.svg`. Das komplette
+Programm steckt in der HTML-Datei.
+
+1. Ordner `dist/` an einen beliebigen Ort kopieren – Desktop, USB-Stick, Netzlaufwerk
+2. Darin `index.html` doppelklicken
+
+Fertig. Kein Terminal, keine Installation, kein Internet – auf dem Turnier-Laptop muss nicht einmal
+Node.js vorhanden sein.
+
+> **Wichtig zu den Daten:** Turniere und ewige Tabelle speichert der Browser lokal, getrennt je
+> Browser **und je Ablageort**. Wird der Ordner verschoben oder ein anderer Browser verwendet, ist
+> die ewige Tabelle zunächst leer – die Daten sind nicht weg, sie liegen nur am alten Ort. Zum
+> Umziehen (und als Backup) gibt es auf der Seite *Ewige Tabelle* die Schaltflächen
+> `Export (JSON)` und `Import`.
+
+## Mit Entwicklungsserver starten
 
 ```bash
 npm install
 npm run dev
 ```
 
-Danach die angezeigte Adresse (standardmäßig <http://localhost:5173>) im Browser öffnen.
+Danach die angezeigte Adresse (standardmäßig <http://localhost:5173>) im Browser öffnen. Änderungen
+am Code sind sofort sichtbar; dafür muss das Terminal offen bleiben.
 
 Weitere Befehle:
 
 | Befehl | Zweck |
 |---|---|
 | `npm run dev` | Entwicklungsserver mit Hot Reload |
-| `npm run build` | Produktions-Build nach `dist/` |
-| `npm run preview` | Produktions-Build lokal testen |
+| `npm run build` | Baut `dist/` inklusive Typprüfung |
+| `npm run paket` | Baut `dist/` ohne Typprüfung (schneller) |
+| `npm run preview` | Gebauten Stand über einen lokalen Server testen |
 | `npm run test` | Testsuite der Turnierlogik |
 
 ## Vereinslogo austauschen
@@ -33,7 +59,13 @@ Vereinsfarben. Um das Originallogo zu verwenden, genügt **eine der beiden** Var
 - die eigene Datei als `public/logo.png` ablegen (wird bevorzugt geladen), **oder**
 - `public/logo.svg` durch die eigene SVG-Datei ersetzen.
 
-Am Code muss dafür nichts geändert werden.
+Am Code muss dafür nichts geändert werden; nach dem Austausch einmal `npm run build` laufen lassen.
+Genauso funktioniert es auch direkt im fertigen `dist/`-Ordner: die eigene Datei dort als `logo.png`
+neben die `index.html` legen.
+
+Solange keine `logo.png` vorhanden ist, meldet die Browser-Konsole beim Laden einmal
+`logo.png – nicht gefunden`. Das ist kein Fehler, sondern der Umschaltmechanismus: die App probiert
+zuerst die PNG und nimmt dann die mitgelieferte SVG.
 
 ## Farben
 

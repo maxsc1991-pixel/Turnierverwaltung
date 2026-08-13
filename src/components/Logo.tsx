@@ -6,12 +6,14 @@ import { useState } from 'react';
  * genügt es also, die eigene Datei unter einem der beiden Namen abzulegen.
  */
 export function Logo({ size = 44, className }: { size?: number; className?: string }) {
-  const [src, setSrc] = useState('/logo.png');
+  // Relative Pfade, damit das Logo auch beim Öffnen per Doppelklick (file://)
+  // aus dem Ordner neben der index.html geladen wird.
+  const [src, setSrc] = useState('./logo.png');
 
   return (
     <img
       src={src}
-      onError={() => setSrc((current) => (current === '/logo.png' ? '/logo.svg' : current))}
+      onError={() => setSrc((current) => (current === './logo.png' ? './logo.svg' : current))}
       width={size}
       height={size}
       alt="DC Lok Pfalzel"
