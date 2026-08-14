@@ -196,8 +196,17 @@ Gruppe A, **B2** Zweiter der Gruppe B, **C3** ein nachgerückter Gruppendritter.
 Die Seite **Anzeige** stellt den Turnierstand kompakt und ohne Bedienelemente dar – gedacht für einen
 zweiten Bildschirm, einen Beamer oder ein Tablet im Gastraum. Sie zeigt die gerade laufenden Spiele
 groß hervorgehoben, die Gruppentabellen, die nächsten Paarungen mit Uhrzeit und Feld, den
-Turnierbaum der KO-Phase und am Ende das Podest. Sie aktualisiert sich automatisch, sobald in der
-Turnieransicht ein Ergebnis eingetragen wird.
+Turnierbaum der KO-Phase und am Ende das Podest.
+
+**Eigenes Fenster und Selbstaktualisierung:** Auf der Konfigurationsseite gibt es die Schaltfläche
+*Anzeige in neuem Fenster öffnen* – so läuft die Tafel auf dem zweiten Bildschirm, während im ersten
+Fenster weiter Ergebnisse erfasst werden. Ein zweites Fenster hat allerdings seinen eigenen
+Arbeitsstand und bekommt Eingaben nicht von selbst mit. Deshalb lädt die Anzeigeseite den
+Turnierstand regelmäßig neu; das Intervall wird auf der Konfigurationsseite unter *Automatisch
+aktualisieren (Sek.)* eingestellt, **0 schaltet die Aktualisierung ab**. Zusätzlich meldet der
+Browser über das `storage`-Ereignis sofort, wenn im anderen Fenster geschrieben wurde – in der Praxis
+erscheinen Ergebnisse dadurch meist unmittelbar, und das Intervall dient als verlässlicher Rückfall.
+Rechts oben zeigt die Seite an, in welchem Takt sie lädt und wann sie zuletzt aktualisiert hat.
 
 ## Spielplan und faire Pausen
 

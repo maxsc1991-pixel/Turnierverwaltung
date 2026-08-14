@@ -35,6 +35,8 @@ export function ConfigPage() {
   const setConfig = useTournamentStore((s) => s.setConfig);
   const generatePlan = useTournamentStore((s) => s.generatePlan);
   const active = useTournamentStore((s) => s.active);
+  const displayRefreshSeconds = useTournamentStore((s) => s.displayRefreshSeconds);
+  const setDisplayRefreshSeconds = useTournamentStore((s) => s.setDisplayRefreshSeconds);
 
   const options = useMemo(() => groupOptions(config.participants), [config.participants]);
   const selectedOption = findGroupOption(config.participants, config.groupCount);
@@ -369,6 +371,48 @@ export function ConfigPage() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card__head">
+          <div className="card__title">Anzeigeseite</div>
+          <span className="faint">Turnierstand für Zuschauer, ohne Bedienelemente</span>
+        </div>
+        <div className="card__body">
+          <div className="grid grid--2" style={{ alignItems: 'end' }}>
+            <div className="field">
+              <label htmlFor="cfg-refresh">Automatisch aktualisieren (Sek.)</label>
+              <input
+                id="cfg-refresh"
+                type="number"
+                min={0}
+                max={600}
+                step={5}
+                value={displayRefreshSeconds}
+                onChange={(e) => setDisplayRefreshSeconds(Number(e.target.value))}
+              />
+              <span className="field__hint">
+                {displayRefreshSeconds > 0
+                  ? `Die Anzeige liest den Turnierstand alle ${displayRefreshSeconds} Sekunden neu ein. 0 schaltet die automatische Aktualisierung ab.`
+                  : 'Automatische Aktualisierung ist abgeschaltet – die Anzeige zeigt den Stand vom Öffnen.'}
+              </span>
+            </div>
+            <div className="field">
+              <span className="field-label">Zweiter Bildschirm</span>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => window.open(`${window.location.href.split('#')[0]}#/anzeige`, '_blank')}
+              >
+                Anzeige in neuem Fenster öffnen
+              </button>
+              <span className="field__hint">
+                Läuft die Anzeige in einem eigenen Fenster, holt sie sich neue Ergebnisse über diese
+                Aktualisierung.
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 

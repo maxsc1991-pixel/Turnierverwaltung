@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTournamentStore } from '../store/useTournamentStore';
+import { STORAGE_KEY, useTournamentStore } from '../store/useTournamentStore';
 import { StandingsTable } from '../components/StandingsTable';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
@@ -23,6 +23,37 @@ import {
 export function DisplayPage() {
   const navigate = useNavigate();
   const tournament = useTournamentStore((s) => s.active);
+  const refreshSeconds = useTournamentStore((s) => s.displayRefreshSeconds);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  /*
+   * Läuft die Anzeige in einem zweiten Fenster, hat sie einen eigenen
+   * Speicherzustand und bekommt dort eingetragene Ergebnisse nicht mit. Sie
+   * liest den Stand deshalb regelmäßig neu aus dem localStorage ein.
+   * Zusätzlich meldet der Browser über das storage-Ereignis sofort, wenn ein
+   * anderes Fenster geschrieben hat – dann ist die Anzeige ohne Wartezeit aktuell.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const reload = async () => {
+      await useTournamentStore.persist.rehydrate();
+      if (!cancelled) setLastRefresh(new Date());
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === STORAGE_KEY) void reload();
+    };
+    window.addEventListener('storage', onStorage);
+
+    const timer =
+      refreshSeconds > 0 ? window.setInterval(() => void reload(), refreshSeconds * 1000) : undefined;
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', onStorage);
+      if (timer !== undefined) window.clearInterval(timer);
+    };
+  }, [refreshSeconds]);
 
   const resolver = useMemo(() => new Resolver(tournament?.matches ?? []), [tournament?.matches]);
   const byId = useMemo(() => indexMatches(tournament?.matches ?? []), [tournament?.matches]);
@@ -80,11 +111,23 @@ export function DisplayPage() {
             · {played.length} von {relevant.length} Spielen
           </p>
         </div>
-        <div className="display__progress" aria-hidden="true">
-          <div
-            className="display__progress-bar"
-            style={{ width: `${relevant.length ? (played.length / relevant.length) * 100 : 0}%` }}
-          />
+        <div className="display__status">
+          <div className="display__progress" aria-hidden="true">
+            <div
+              className="display__progress-bar"
+              style={{ width: `${relevant.length ? (played.length / relevant.length) * 100 : 0}%` }}
+            />
+          </div>
+          <span className="display__refresh">
+            {refreshSeconds > 0 ? (
+              <>
+                <span className="display__refresh-dot" /> aktualisiert alle {refreshSeconds}s
+                {lastRefresh && ` · zuletzt ${lastRefresh.toLocaleTimeString('de-DE')}`}
+              </>
+            ) : (
+              'automatische Aktualisierung aus'
+            )}
+          </span>
         </div>
       </div>
 

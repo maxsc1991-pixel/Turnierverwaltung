@@ -22,14 +22,23 @@ export interface ExportPayload {
   archive: Tournament[];
 }
 
+/** 0 = keine automatische Aktualisierung. */
+export const DEFAULT_DISPLAY_REFRESH = 15;
+
 interface AppState {
   config: TournamentConfig;
   players: Player[];
   active: Tournament | null;
   archive: Tournament[];
+  /**
+   * Wie oft die Anzeigeseite ihren Stand neu einliest (Sekunden). Läuft sie in
+   * einem zweiten Fenster, bekommt sie Änderungen nur auf diesem Weg mit.
+   */
+  displayRefreshSeconds: number;
 
   setConfig: (patch: Partial<TournamentConfig>) => void;
   resetConfig: () => void;
+  setDisplayRefreshSeconds: (seconds: number) => void;
 
   addPlayer: (name: string, club?: string) => void;
   addPlayersFromText: (text: string) => number;
@@ -71,9 +80,13 @@ export const useTournamentStore = create<AppState>()(
       players: [],
       active: null,
       archive: [],
+      displayRefreshSeconds: DEFAULT_DISPLAY_REFRESH,
 
       setConfig: (patch) => set((s) => ({ config: { ...s.config, ...patch } })),
       resetConfig: () => set({ config: defaultConfig() }),
+
+      setDisplayRefreshSeconds: (seconds) =>
+        set({ displayRefreshSeconds: Math.max(0, Math.min(600, Math.round(seconds) || 0)) }),
 
       addPlayer: (name, club) =>
         set((s) => ({
@@ -284,6 +297,7 @@ export const useTournamentStore = create<AppState>()(
         players: state.players,
         active: state.active,
         archive: state.archive,
+        displayRefreshSeconds: state.displayRefreshSeconds,
       }),
     },
   ),
