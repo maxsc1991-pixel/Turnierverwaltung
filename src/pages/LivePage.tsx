@@ -4,6 +4,7 @@ import { useTournamentStore } from '../store/useTournamentStore';
 import { BracketView } from '../components/BracketView';
 import { MatchCard } from '../components/MatchCard';
 import { ResultDialog } from '../components/ResultDialog';
+import { PlacementTable } from '../components/PlacementTable';
 import { StandingsTable } from '../components/StandingsTable';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
@@ -400,27 +401,19 @@ function UpcomingRow({
   );
 }
 
-function FinalRanking({ tournament }: { tournament: NonNullable<ReturnType<typeof useTournamentStore.getState>['active']> }) {
-  const top = (tournament.finalRanking ?? []).filter((r) => r.rank <= 4);
-  if (!top.length) return null;
-
+function FinalRanking({
+  tournament,
+}: {
+  tournament: NonNullable<ReturnType<typeof useTournamentStore.getState>['active']>;
+}) {
   return (
     <div className="card">
       <div className="card__head">
         <div className="card__title">Endstand</div>
         <span className="badge badge--green">Turnier abgeschlossen</span>
       </div>
-      <div className="card__body">
-        <div className="stat-tiles">
-          {top.map((entry) => (
-            <div className="stat-tile" key={entry.playerId}>
-              <div className="row">
-                <span className={`rank-medal rank-medal--${entry.rank}`}>{entry.rank}</span>
-                <strong>{tournament.players.find((p) => p.id === entry.playerId)?.name ?? '–'}</strong>
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="card__body card__body--flush">
+        <PlacementTable tournament={tournament} />
       </div>
     </div>
   );

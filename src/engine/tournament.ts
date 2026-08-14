@@ -270,6 +270,69 @@ export function computeFinalRanking(tournament: Tournament): FinalRank[] {
     .sort((a, b) => a.rank - b.rank);
 }
 
+export interface PlacementRow {
+  rank: number;
+  /** "1." bei einem Spieler, "5.–8." wenn sich mehrere den Rang teilen. */
+  rankLabel: string;
+  playerIds: string[];
+  /** Runde, in der die Spieler ausgeschieden sind – bzw. "Turniersieg". */
+  reached: string;
+}
+
+/**
+ * Vollständige Platzierungsliste der KO-Phase: jeder Spieler, der die KO-Runde
+ * erreicht hat, mit seinem Rang. Spieler, die in derselben Runde ausgeschieden
+ * sind, teilen sich einen Rang (Viertelfinale → "5.–8.").
+ *
+ * Gibt es keine KO-Phase (Einzelgruppe ohne Finale), entscheidet die
+ * Gruppentabelle – dann werden alle Teilnehmer aufgeführt.
+ */
+export function koPlacements(tournament: Tournament): PlacementRow[] {
+  const resolver = new Resolver(tournament.matches);
+  const koMatches = tournament.matches.filter((m) => m.phase !== 'group');
+
+  // Wer stand überhaupt in der KO-Phase? Freilos-Spiele zählen mit, denn wer
+  // ein Freilos hatte, hat die Runde erreicht.
+  const lastRound = new Map<string, Match>();
+  for (const match of koMatches) {
+    if (match.phase === 'gf_reset' && !isBracketResetNeeded(tournament.matches, resolver)) continue;
+    for (const playerId of resolver.playerIds(match)) {
+      const previous = lastRound.get(playerId);
+      if (!previous || match.round > previous.round || rankOfPhase(match) > rankOfPhase(previous)) {
+        lastRound.set(playerId, match);
+      }
+    }
+  }
+
+  const ranking = computeFinalRanking(tournament);
+  const relevant = lastRound.size > 0 ? ranking.filter((r) => lastRound.has(r.playerId)) : ranking;
+  if (!relevant.length) return [];
+
+  const winner = relevant.find((r) => r.rank === 1)?.playerId;
+  const byRank = new Map<number, string[]>();
+  for (const entry of relevant) {
+    byRank.set(entry.rank, [...(byRank.get(entry.rank) ?? []), entry.playerId]);
+  }
+
+  return [...byRank.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([rank, playerIds]) => ({
+      rank,
+      rankLabel: playerIds.length > 1 ? `${rank}.–${rank + playerIds.length - 1}.` : `${rank}.`,
+      playerIds,
+      reached:
+        playerIds[0] === winner && playerIds.length === 1
+          ? 'Turniersieg'
+          : (lastRound.get(playerIds[0])?.roundLabel ?? 'Gruppenphase'),
+    }));
+}
+
+/** Spätere Phasen stehen im Turnierverlauf hinter früheren. */
+function rankOfPhase(match: Match): number {
+  const order: Record<string, number> = { wb: 0, lb: 1, ko: 2, third: 3, gf: 4, gf_reset: 5 };
+  return order[match.phase] ?? -1;
+}
+
 export function finishTournament(tournament: Tournament): Tournament {
   return {
     ...tournament,

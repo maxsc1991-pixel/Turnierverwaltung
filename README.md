@@ -191,6 +191,22 @@ sowie alle Gruppentabellen.
 In der KO-Phase steht hinter jedem Namen, woher der Spieler kommt: **A1** bedeutet Sieger der
 Gruppe A, **B2** Zweiter der Gruppe B, **C3** ein nachgerückter Gruppendritter.
 
+## Endplatzierung
+
+Ist das Turnier abgeschlossen, zeigt die Turnieransicht die **vollständige Platzierung ab der
+KO-Runde**: jeder Spieler, der die KO-Phase erreicht hat, mit Platz, Gruppenherkunft und der Runde,
+in der er ausgeschieden ist. Wer in derselben Runde ausgeschieden ist, teilt sich einen Platz und
+steht gemeinsam in einer Zeile – bei 16 Qualifizierten also `1.`, `2.`, `3.`, `4.`, `5.–8.` und
+`9.–16.`.
+
+Dieselbe Tabelle erscheint auf der Anzeigeseite unter dem Podest und im Turnierarchiv unter
+*Endstand*. Wie viele Spieler aufgeführt werden, ergibt sich aus der Zahl der Qualifizierten: 48
+Teilnehmer in 8 Gruppen à 6 ergeben 16 Qualifizierte und damit die besten 16. Bei 12 Gruppen à 4
+wären es 32.
+
+Gibt es keine KO-Phase (Einzelgruppe ohne Finale), entscheidet die Gruppentabelle – dann werden alle
+Teilnehmer aufgeführt.
+
 ## Anzeigeseite für die Teilnehmer
 
 Die Seite **Anzeige** stellt den Turnierstand kompakt und ohne Bedienelemente dar – gedacht für einen

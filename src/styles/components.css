@@ -1019,3 +1019,57 @@
     animation: none;
   }
 }
+
+/* ------------------------------------------------------ Platzierungen */
+
+.placements td {
+  vertical-align: top;
+}
+
+.placements__rank {
+  white-space: nowrap;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-muted);
+}
+
+/* Mehrere Spieler teilen sich einen Rang und stehen nebeneinander. */
+.placements__players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+}
+
+.placements__player {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.placements__club {
+  color: var(--c-ink-faint);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.placements tr.is-podium td {
+  background: var(--c-surface-alt);
+}
+
+.placements tr.is-podium--1 td {
+  background: var(--c-red-soft);
+}
+
+.placements--compact td,
+.placements--compact th {
+  padding: 3px var(--space-2);
+  font-size: 0.85rem;
+}
+
+.display__placements {
+  margin-top: var(--space-3);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}

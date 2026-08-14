@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Match, Player, Standing, TournamentConfig } from './types';
+import type { Match, Player, Standing, Tournament, TournamentConfig } from './types';
 import { applyKoSettings, bestOf, defaultConfig, hasKoPhase } from './types';
 import { groupOptions, roundNames, validateConfig, hasErrors, findGroupOption } from './validation';
 import { buildGroupMatches, drawGroups, roundRobinRounds } from './groups';
@@ -15,6 +15,7 @@ import {
   computeFinalRanking,
   createTournament,
   seedOf,
+  koPlacements,
   startKoPhase,
   tournamentComplete,
 } from './tournament';
@@ -706,5 +707,125 @@ describe('Eigene Einstellungen der KO-Phase', () => {
     expect((times[1] - times[0]) / 60000).toBe(30);
     expect(new Date(times[0]).getHours()).toBe(21);
     expect(ko.every((m) => m.field === 1)).toBe(true);
+  });
+});
+
+describe('Platzierungen ab der KO-Runde', () => {
+  /** Spielt Gruppenphase und KO-Runde durch; kleinere Spielernummer gewinnt. */
+  function durchspielen(tournament: ReturnType<typeof createTournament>) {
+    const entscheide = (m: Match) => {
+      const resolver = new Resolver(current.matches);
+      const [a, b] = resolver.playerIds(m);
+      return Number(a.slice(1)) < Number(b.slice(1)) ? 'a' : 'b';
+    };
+    let current: Tournament = { ...tournament, stage: 'group' };
+
+    current = {
+      ...current,
+      matches: current.matches.map((m) => (m.phase === 'group' ? play(m, entscheide(m)) : m)),
+    };
+    current = startKoPhase(current);
+
+    for (let guard = 0; guard < 400; guard++) {
+      const resolver = new Resolver(current.matches);
+      const next = current.matches.find((m) => resolver.status(m) === 'ready');
+      if (!next) break;
+      const winner = entscheide(next);
+      current = {
+        ...current,
+        matches: current.matches.map((m) => (m.id === next.id ? play(m, winner) : m)),
+      };
+    }
+    return current;
+  }
+
+  it('führt bei 48 Teilnehmern in 8 Gruppen genau die besten 16 auf', () => {
+    const option = findGroupOption(48, 8);
+    expect(option).toMatchObject({ groupSize: 6, qualifiers: 16, bestThirds: 0 });
+
+    const played = durchspielen(
+      createTournament(
+        config({ format: 'groups', participants: 48, groupCount: 8, groupSize: 6, thirdPlaceMatch: true }),
+        makePlayers(48),
+        48,
+      ),
+    );
+    expect(tournamentComplete(played)).toBe(true);
+
+    const rows = koPlacements(played);
+    const genannt = rows.flatMap((r) => r.playerIds);
+    expect(genannt).toHaveLength(16);
+    expect(new Set(genannt).size).toBe(16);
+
+    // Ränge: 1., 2., 3., 4., 5.–8., 9.–16.
+    expect(rows.map((r) => r.rankLabel)).toEqual(['1.', '2.', '3.', '4.', '5.–8.', '9.–16.']);
+    expect(rows.find((r) => r.rank === 5)?.playerIds).toHaveLength(4);
+    expect(rows.find((r) => r.rank === 9)?.playerIds).toHaveLength(8);
+
+    // Die 32 Spieler, die in der Gruppenphase ausgeschieden sind, tauchen nicht auf.
+    expect(genannt).not.toContain('p48');
+    expect(rows[0].reached).toBe('Turniersieg');
+    expect(rows[5].reached).toBe('Achtelfinale');
+  });
+
+  it('nennt bei 12 Gruppen à 4 alle 32 Qualifizierten', () => {
+    const option = findGroupOption(48, 12);
+    expect(option).toMatchObject({ qualifiers: 32, bestThirds: 8 });
+
+    const played = durchspielen(
+      createTournament(
+        config({ format: 'groups', participants: 48, groupCount: 12, groupSize: 4, thirdPlaceMatch: false }),
+        makePlayers(48),
+        12,
+      ),
+    );
+    const rows = koPlacements(played);
+    expect(rows.flatMap((r) => r.playerIds)).toHaveLength(32);
+    // Ohne Spiel um Platz 3 teilen sich beide Halbfinal-Verlierer den Rang.
+    expect(rows.map((r) => r.rankLabel)).toEqual(['1.', '2.', '3.–4.', '5.–8.', '9.–16.', '17.–32.']);
+    expect(rows.find((r) => r.rank === 3)?.playerIds).toHaveLength(2);
+  });
+
+  it('listet im Single-KO alle Teilnehmer auf, Freilose eingeschlossen', () => {
+    const tournament = createTournament(
+      config({ format: 'single_ko', participants: 13, thirdPlaceMatch: true }),
+      makePlayers(13),
+      13,
+    );
+    let current: Tournament = { ...tournament, stage: 'ko' };
+    for (let guard = 0; guard < 60; guard++) {
+      const resolver = new Resolver(current.matches);
+      const next = current.matches.find((m) => resolver.status(m) === 'ready');
+      if (!next) break;
+      current = {
+        ...current,
+        matches: current.matches.map((m) => (m.id === next.id ? play(m, 'a') : m)),
+      };
+    }
+
+    const rows = koPlacements(current);
+    expect(rows.flatMap((r) => r.playerIds)).toHaveLength(13);
+    expect(rows[0].playerIds).toHaveLength(1);
+  });
+
+  it('führt ohne KO-Phase alle Spieler nach der Gruppentabelle auf', () => {
+    const tournament = createTournament(
+      config({ format: 'groups', participants: 5, groupCount: 1, groupSize: 5, groupFinal: false }),
+      makePlayers(5),
+      5,
+    );
+    const played = {
+      ...tournament,
+      stage: 'group' as const,
+      matches: tournament.matches.map((m) => {
+        const a = Number((m.a as { playerId: string }).playerId.slice(1));
+        const b = Number((m.b as { playerId: string }).playerId.slice(1));
+        return play(m, a < b ? 'a' : 'b');
+      }),
+    };
+
+    const rows = koPlacements(played);
+    expect(rows.flatMap((r) => r.playerIds)).toHaveLength(5);
+    expect(rows[0].playerIds).toEqual(['p1']);
   });
 });

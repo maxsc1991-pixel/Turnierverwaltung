@@ -4,6 +4,7 @@ import {
   parseImport,
   useTournamentStore,
 } from '../store/useTournamentStore';
+import { PlacementTable } from '../components/PlacementTable';
 import { computeAllTimeStats, type PlayerStats } from '../engine/stats';
 import { FORMAT_LABEL, SPORT_LABEL, type Sport, type Tournament } from '../engine/types';
 
@@ -302,16 +303,7 @@ function ArchiveRow({
         <tr>
           <td colSpan={6} style={{ background: 'var(--c-surface-alt)' }}>
             <div className="stack--sm" style={{ display: 'grid', padding: 'var(--space-2) 0' }}>
-              {(tournament.finalRanking ?? []).slice(0, 8).map((entry) => (
-                <div className="row" key={entry.playerId}>
-                  <span
-                    className={`rank-medal${entry.rank <= 3 ? ` rank-medal--${entry.rank}` : ''}`}
-                  >
-                    {entry.rank}
-                  </span>
-                  <span>{nameOf(entry.playerId)}</span>
-                </div>
-              ))}
+              <PlacementTable tournament={tournament} />
             </div>
           </td>
         </tr>

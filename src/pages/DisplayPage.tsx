@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { STORAGE_KEY, useTournamentStore } from '../store/useTournamentStore';
+import { PlacementTable } from '../components/PlacementTable';
 import { StandingsTable } from '../components/StandingsTable';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
@@ -290,6 +291,11 @@ export function DisplayPage() {
                   </span>
                 </div>
               ))}
+          </div>
+
+          {/* Vollständige Platzierungen ab der KO-Runde */}
+          <div className="display__placements">
+            <PlacementTable tournament={tournament} compact />
           </div>
         </section>
       )}
