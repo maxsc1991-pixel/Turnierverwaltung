@@ -78,6 +78,19 @@ ist ausgeschlossen, und eine Einzelgruppe (3–10 Spieler) liefert fest 2 Qualif
 Bei genau einer Gruppe entscheidet `config.groupFinal`, ob überhaupt eine KO-Runde folgt –
 abgefragt über `hasKoPhase(config)`, nicht über `format === 'groups'`.
 
+### Wertung der Gruppentabelle
+
+`engine/standings.ts` sortiert nach **Punkte → Leg-Differenz → direkter Vergleich → gewonnene Legs →
+Setzlistenposition**. Beim Cornhole schiebt sich die **Punktdifferenz vor den direkten Vergleich**,
+weil die Leg-Differenz dort bei Best of 1 nur ±1 beträgt und zu viele Gleichstände erzeugt.
+
+Umgeschaltet wird das nicht über die Sportart im Sortierer, sondern über
+`standingsOptions(config)` → `{ usePoints }`. Wer eine neue Auswertung baut, muss diese Optionen
+mitgeben, sonst wertet sie stillschweigend ohne Punkte.
+
+Der direkte Vergleich ist eine Mini-Tabelle nur aus den Spielen der Gleichstehenden untereinander –
+er entscheidet also erst, wenn die Kriterien davor gleich sind.
+
 ### Terminplanung
 
 `engine/schedule.ts` verteilt greedy über Zeitslots: pro Slot wird jedes Feld mit der spielbereiten
@@ -90,6 +103,19 @@ festen Gruppenfeldern kann auf einem späteren Feld sehr wohl noch eine Partie a
 
 Von Hand geänderte Felder oder Zeiten können Doppelbelegungen erzeugen; `findScheduleConflicts()`
 findet sie und die Planseite weist darauf hin.
+
+### Endplatzierung
+
+`computeFinalRanking()` vergibt Ränge an **alle** Teilnehmer; `koPlacements()` filtert daraus die
+Spieler, die die KO-Phase erreicht haben, und fasst Ranggleiche zu einer Zeile zusammen
+(`5.–8.`). Bei 16 Qualifizierten ergibt das `1.`, `2.`, `3.`, `4.`, `5.–8.`, `9.–16.`.
+
+Die Runde, in der ein Spieler ausgeschieden ist, wird aus **seinem letzten KO-Spiel** abgeleitet, nicht
+aus dem Rang – im Doppel-KO laufen Sieger- und Verliererrunde parallel, ein Rang allein sagt dort
+nichts über die Runde. Freilos-Spiele zählen mit: wer ein Freilos hatte, hat die Runde erreicht.
+
+Ohne KO-Phase liefert `koPlacements()` alle Teilnehmer nach der Gruppentabelle. Die Darstellung
+teilen sich Turnieransicht, Anzeigeseite und Archiv über `components/PlacementTable.tsx`.
 
 ### Zustand und Persistenz
 
