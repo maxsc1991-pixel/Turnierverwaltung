@@ -76,9 +76,7 @@ export function StandingsTable({
                 <td>{row.rank}</td>
                 <td>
                   <span className="standings__name">{player?.name ?? '–'}</span>
-                  {player?.club && !compact && (
-                    <span className="standings__club">{player.club}</span>
-                  )}
+                  {player?.club && <span className="standings__club">{player.club}</span>}
                   {row.tiebreak && !compact && (
                     <span className="standings__tiebreak"> · {row.tiebreak}</span>
                   )}

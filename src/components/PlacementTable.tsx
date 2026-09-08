@@ -51,9 +51,7 @@ export function PlacementTable({ tournament, compact = false }: Props) {
                             {origin.short}
                           </span>
                         )}
-                        {player?.club && !compact && (
-                          <span className="placements__club">{player.club}</span>
-                        )}
+                        {player?.club && <span className="placements__club">{player.club}</span>}
                       </span>
                     );
                   })}

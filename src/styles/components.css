@@ -1073,3 +1073,39 @@
   border-radius: var(--radius);
   overflow: hidden;
 }
+
+/* Team-/Vereinsname in den laufenden Spielen der Anzeigetafel. */
+.now-card__side {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.now-card__name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.now-card__club {
+  font-size: 0.62em;
+  font-weight: 600;
+  color: #b4b4b8;
+  letter-spacing: 0.03em;
+  margin-top: 2px;
+}
+
+.display__next-clubs {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--c-ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Auf der Tafel steht der Teamname direkt unter dem Namen. */
+.placements--compact .placements__club,
+.standings--compact .standings__club {
+  font-size: 0.72rem;
+}

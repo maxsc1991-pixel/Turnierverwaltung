@@ -152,14 +152,20 @@ export function DisplayPage() {
                     {match.field ? `Feld ${match.field}` : match.roundLabel}
                   </div>
                   <div className="now-card__players">
-                    <span>
-                      {a.name}
-                      <Origin origins={origins} playerId={a.playerId} hide={inGroupPhase} />
+                    <span className="now-card__side">
+                      <span className="now-card__name">
+                        {a.name}
+                        <Origin origins={origins} playerId={a.playerId} hide={inGroupPhase} />
+                      </span>
+                      {a.club && <span className="now-card__club">{a.club}</span>}
                     </span>
                     <span className="now-card__vs">:</span>
-                    <span>
-                      {b.name}
-                      <Origin origins={origins} playerId={b.playerId} hide={inGroupPhase} />
+                    <span className="now-card__side">
+                      <span className="now-card__name">
+                        {b.name}
+                        <Origin origins={origins} playerId={b.playerId} hide={inGroupPhase} />
+                      </span>
+                      {b.club && <span className="now-card__club">{b.club}</span>}
                     </span>
                   </div>
                   <div className="now-card__meta">{match.label}</div>
@@ -215,11 +221,18 @@ export function DisplayPage() {
                   <li key={match.id}>
                     <span className="display__next-time">{formatTime(match.scheduledAt)}</span>
                     <span className="display__next-pair">
-                      {a.name}
-                      <Origin origins={origins} playerId={a.playerId} hide={inGroupPhase} />
-                      <span className="muted"> – </span>
-                      {b.name}
-                      <Origin origins={origins} playerId={b.playerId} hide={inGroupPhase} />
+                      <span>
+                        {a.name}
+                        <Origin origins={origins} playerId={a.playerId} hide={inGroupPhase} />
+                        <span className="muted"> – </span>
+                        {b.name}
+                        <Origin origins={origins} playerId={b.playerId} hide={inGroupPhase} />
+                      </span>
+                      {(a.club || b.club) && (
+                        <span className="display__next-clubs">
+                          {a.club ?? '–'} <span className="muted">/</span> {b.club ?? '–'}
+                        </span>
+                      )}
                     </span>
                     <span className="display__next-meta">
                       {match.field ? `Feld ${match.field}` : match.roundLabel}
