@@ -91,7 +91,7 @@ export function DisplayPage() {
     );
 
   const current = ready.slice(0, config.fields);
-  const upcoming = ready.slice(config.fields, config.fields + 8);
+  const upcoming = upcomingPerField(ready, current);
   const koMatches = matches.filter((m) => m.phase !== 'group');
   const showKo = koMatches.length > 0;
 
@@ -301,6 +301,36 @@ export function DisplayPage() {
       )}
     </div>
   );
+}
+
+/** Mindestzahl an Vorschauzeilen, damit auch bei wenigen Feldern etwas zu sehen ist. */
+const MIN_UPCOMING = 8;
+
+/**
+ * Die Vorschau zeigt **für jedes Spielfeld die nächste Paarung** – wer an Feld 9
+ * wartet, soll dort auch nachsehen können. Erst danach wird mit weiteren
+ * Partien in Zeitreihenfolge aufgefüllt, damit die Liste bei nur zwei oder drei
+ * Feldern nicht auf zwei Zeilen zusammenschrumpft.
+ */
+function upcomingPerField(ready: readonly Match[], current: readonly Match[]): Match[] {
+  const running = new Set(current.map((m) => m.id));
+  const rest = ready.filter((m) => !running.has(m.id));
+
+  const perField: Match[] = [];
+  const seenFields = new Set<number>();
+  for (const match of rest) {
+    if (match.field === undefined || seenFields.has(match.field)) continue;
+    seenFields.add(match.field);
+    perField.push(match);
+  }
+  perField.sort((a, b) => (a.field ?? 0) - (b.field ?? 0));
+
+  const chosen = new Set(perField.map((m) => m.id));
+  const filler = rest
+    .filter((m) => !chosen.has(m.id))
+    .slice(0, Math.max(0, MIN_UPCOMING - perField.length));
+
+  return [...perField, ...filler];
 }
 
 function Origin({

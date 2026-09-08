@@ -36,17 +36,26 @@ export function StandingsTable({
             <th className="num" title="Punkte">
               Pkt
             </th>
-            <th className="num" title="Legs">
-              Legs
-            </th>
+            {/*
+              Auf der Anzeigetafel sind die Karten schmal. Dort zählen die
+              Differenzen; die Roh-Werte (erzielt:kassiert) entfallen, sonst
+              wird die letzte Spalte abgeschnitten.
+            */}
+            {!compact && (
+              <th className="num" title="Legs">
+                Legs
+              </th>
+            )}
             <th className="num" title="Leg-Differenz">
               Diff
             </th>
             {showPoints && (
               <>
-                <th className="num" title="Erzielte und kassierte Punkte">
-                  Punkte
-                </th>
+                {!compact && (
+                  <th className="num" title="Erzielte und kassierte Punkte">
+                    Punkte
+                  </th>
+                )}
                 <th className="num" title="Punktdifferenz – entscheidet vor dem direkten Vergleich">
                   PD
                 </th>
@@ -78,18 +87,22 @@ export function StandingsTable({
                 <td className="num">
                   <strong>{row.points}</strong>
                 </td>
-                <td className="num mono">
-                  {row.legsFor}:{row.legsAgainst}
-                </td>
+                {!compact && (
+                  <td className="num mono">
+                    {row.legsFor}:{row.legsAgainst}
+                  </td>
+                )}
                 <td className="num mono">
                   {row.legDiff > 0 ? '+' : ''}
                   {row.legDiff}
                 </td>
                 {showPoints && (
                   <>
-                    <td className="num mono">
-                      {row.pointsFor}:{row.pointsAgainst}
-                    </td>
+                    {!compact && (
+                      <td className="num mono">
+                        {row.pointsFor}:{row.pointsAgainst}
+                      </td>
+                    )}
                     <td className="num mono">
                       {row.pointsDiff > 0 ? '+' : ''}
                       {row.pointsDiff}
