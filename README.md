@@ -188,6 +188,13 @@ Die Werte gelten ausschließlich für die KO-Spiele; die Gruppenphase und ihre E
 unberührt. Zur Kontrolle zeigt die Seite die aus den Endtabellen ermittelte Setzung der ersten Runde
 sowie alle Gruppentabellen.
 
+**Rangliste der Gruppendritten:** Rücken beste Dritte nach (12/3, 24/6, 48/12), steht auf derselben
+Seite eine eigene Tabelle mit **allen** Gruppendritten in der Reihenfolge, in der über sie
+entschieden wurde – gewertet nach Punkten, dann Leg-Differenz, beim Cornhole zusätzlich nach
+Punktdifferenz. Ein roter Strich markiert den Schnitt: darüber die Qualifizierten, darunter die
+Ausgeschiedenen. So ist auf einen Blick zu sehen, an welchem Wert eine knappe Entscheidung hing.
+Die Liste stammt aus derselben Berechnung wie die Setzung und kann ihr deshalb nicht widersprechen.
+
 In der KO-Phase steht hinter jedem Namen, woher der Spieler kommt: **A1** bedeutet Sieger der
 Gruppe A, **B2** Zweiter der Gruppe B, **C3** ein nachgerückter Gruppendritter.
 

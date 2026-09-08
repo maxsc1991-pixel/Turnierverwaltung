@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTournamentStore } from '../store/useTournamentStore';
 import { StandingsTable } from '../components/StandingsTable';
@@ -7,8 +7,9 @@ import {
   SPORT_LABEL,
   bestOf,
   type KoSettings,
+  type Player,
 } from '../engine/types';
-import { qualifyFromGroups } from '../engine/qualification';
+import { qualifyFromGroups, type ThirdPlaceRow } from '../engine/qualification';
 import { allStandings, groupPhaseComplete, seedOf, standingsOptions } from '../engine/tournament';
 import { estimatedEnd, formatTime } from '../engine/schedule';
 import { findGroupOption, roundNames } from '../engine/validation';
@@ -224,6 +225,31 @@ export function KoSetupPage() {
         </div>
       </div>
 
+      {(option?.bestThirds ?? 0) > 0 && preview && (
+        <div className="card">
+          <div className="card__head">
+            <div className="card__title">
+              Rangliste der Gruppendritten
+              <span className="badge badge--green">
+                beste {option?.bestThirds} von {preview.thirdsRanking.length}
+              </span>
+            </div>
+            <span className="faint">
+              Gewertet nach Punkten, dann Leg-Differenz
+              {config.sport === 'cornhole' ? ', dann Punktdifferenz' : ''}
+            </span>
+          </div>
+          <div className="card__body card__body--flush">
+            <ThirdsRanking
+              rows={preview.thirdsRanking}
+              bestThirds={option?.bestThirds ?? 0}
+              players={players}
+              showPoints={config.sport === 'cornhole'}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card__head">
           <div className="card__title">Endstand der Gruppen</div>
@@ -266,6 +292,91 @@ export function KoSetupPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Alle Gruppendritten in der Reihenfolge, in der über sie entschieden wurde.
+ * Der Strich hinter dem letzten Qualifizierten macht sichtbar, an welchem Wert
+ * die Entscheidung hing.
+ */
+function ThirdsRanking({
+  rows,
+  bestThirds,
+  players,
+  showPoints,
+}: {
+  rows: readonly ThirdPlaceRow[];
+  bestThirds: number;
+  players: readonly Player[];
+  showPoints: boolean;
+}) {
+  const columns = showPoints ? 7 : 6;
+
+  return (
+    <div className="table-scroll">
+      <table className="standings">
+        <thead>
+          <tr>
+            <th aria-label="Platz" />
+            <th>Spieler</th>
+            <th>Gruppe</th>
+            <th className="num" title="Spiele">
+              Sp
+            </th>
+            <th className="num" title="Punkte">
+              Pkt
+            </th>
+            <th className="num" title="Leg-Differenz">
+              Diff
+            </th>
+            {showPoints && (
+              <th className="num" title="Punktdifferenz">
+                PD
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => {
+            const player = players.find((p) => p.id === row.playerId);
+            return (
+              <Fragment key={row.playerId}>
+                <tr className={row.qualified ? 'is-qualified' : undefined}>
+                  <td>{row.crossRank}</td>
+                  <td>
+                    <span className="standings__name">{player?.name ?? '–'}</span>
+                    {player?.club && <span className="standings__club">{player.club}</span>}
+                  </td>
+                  <td className="faint">{row.groupName}</td>
+                  <td className="num">{row.standing.played}</td>
+                  <td className="num">
+                    <strong>{row.standing.points}</strong>
+                  </td>
+                  <td className="num mono">
+                    {row.standing.legDiff > 0 ? '+' : ''}
+                    {row.standing.legDiff}
+                  </td>
+                  {showPoints && (
+                    <td className="num mono">
+                      {row.standing.pointsDiff > 0 ? '+' : ''}
+                      {row.standing.pointsDiff}
+                    </td>
+                  )}
+                </tr>
+                {index + 1 === bestThirds && index + 1 < rows.length && (
+                  <tr className="standings__cut">
+                    <td colSpan={columns}>
+                      Schnitt – die besten {bestThirds} Dritten sind qualifiziert
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

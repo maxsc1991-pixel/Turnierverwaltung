@@ -15,6 +15,7 @@ import {
   computeFinalRanking,
   createTournament,
   seedOf,
+  standingsOptions,
   koPlacements,
   startKoPhase,
   tournamentComplete,
@@ -360,6 +361,49 @@ describe('Setzung aus der Gruppenphase', () => {
     // Jeder Qualifikant steht genau einmal im Bracket.
     const ids = positions.map((p) => (p.kind === 'player' ? p.playerId : ''));
     expect(new Set(ids).size).toBe(8);
+  });
+
+  it('führt alle Gruppendritten mit Schnittmarke auf und trifft damit dieselbe Auswahl', () => {
+    const { tournament, option } = playGroupPhase(48, 12);
+    expect(option?.bestThirds).toBe(8);
+
+    const result = qualifyFromGroups(
+      tournament.groups,
+      allStandings(tournament),
+      8,
+      seedOf(tournament.players),
+      standingsOptions(tournament.config),
+    );
+
+    // Jede Gruppe stellt genau einen Dritten – die Liste zeigt alle, nicht nur
+    // die qualifizierten.
+    expect(result.thirdsRanking).toHaveLength(12);
+    expect(result.thirdsRanking.map((r) => r.crossRank)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    ]);
+    expect(new Set(result.thirdsRanking.map((r) => r.groupName)).size).toBe(12);
+
+    // Genau die ersten acht sind markiert – und zwar dieselben acht, die auch
+    // wirklich ins Bracket gesetzt werden.
+    const markiert = result.thirdsRanking.filter((r) => r.qualified);
+    expect(markiert).toHaveLength(8);
+    expect(markiert.every((r, i) => r.crossRank === i + 1)).toBe(true);
+
+    const imBracket = new Set(
+      result.qualifiers.filter((q) => q.groupRank === 3).map((q) => q.playerId),
+    );
+    expect(new Set(markiert.map((r) => r.playerId))).toEqual(imBracket);
+    for (const row of result.thirdsRanking.filter((r) => !r.qualified)) {
+      expect(imBracket.has(row.playerId)).toBe(false);
+    }
+
+    // Die Reihenfolge ist absteigend nach Punkten und Leg-Differenz.
+    for (let i = 1; i < result.thirdsRanking.length; i++) {
+      const vor = result.thirdsRanking[i - 1].standing;
+      const nach = result.thirdsRanking[i].standing;
+      expect(vor.points).toBeGreaterThanOrEqual(nach.points);
+      if (vor.points === nach.points) expect(vor.legDiff).toBeGreaterThanOrEqual(nach.legDiff);
+    }
   });
 
   it('erzeugt bei 24 Teilnehmern in 6 Gruppen ein Achtelfinale mit 4 besten Dritten', () => {

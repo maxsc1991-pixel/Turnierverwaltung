@@ -78,6 +78,10 @@ ist ausgeschlossen, und eine Einzelgruppe (3–10 Spieler) liefert fest 2 Qualif
 Bei genau einer Gruppe entscheidet `config.groupFinal`, ob überhaupt eine KO-Runde folgt –
 abgefragt über `hasKoPhase(config)`, nicht über `format === 'groups'`.
 
+Die Rangliste der Gruppendritten auf der KO-Seite kommt als `thirdsRanking` aus
+`qualifyFromGroups()` – also aus **derselben** Sortierung, die auch die Setzung erzeugt. Wer sie
+anderswo nachbaut, riskiert eine Anzeige, die der tatsächlichen Qualifikation widerspricht.
+
 ### Wertung der Gruppentabelle
 
 `engine/standings.ts` sortiert nach **Punkte → Leg-Differenz → direkter Vergleich → gewonnene Legs →

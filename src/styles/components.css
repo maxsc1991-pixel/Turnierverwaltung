@@ -1210,3 +1210,15 @@
     page-break-after: auto;
   }
 }
+
+/* Trennlinie zwischen qualifizierten und ausgeschiedenen Gruppendritten. */
+.standings__cut td {
+  padding: 4px var(--space-3);
+  border-top: 2px solid var(--c-red);
+  background: var(--c-surface-alt);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-ink-faint);
+}

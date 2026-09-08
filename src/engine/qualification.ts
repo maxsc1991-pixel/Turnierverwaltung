@@ -19,11 +19,27 @@ interface Pair {
   strength: number;
 }
 
+/** Eine Zeile der Rangliste aller Gruppendritten – mit und ohne Qualifikation. */
+export interface ThirdPlaceRow {
+  playerId: string;
+  groupName: string;
+  /** Rang unter allen Gruppendritten, 1 = bester Dritter. */
+  crossRank: number;
+  qualified: boolean;
+  standing: Standing;
+}
+
 export interface QualificationResult {
   /** Bracket-Positionen, direkt an `buildSingleElimination` übergebbar. */
   positions: Slot[];
   qualifiers: Qualifier[];
   pairings: Array<{ home: Qualifier; away: Qualifier }>;
+  /**
+   * Alle Gruppendritten in der Reihenfolge, in der über sie entschieden wurde.
+   * Stammt aus derselben Sortierung wie die Setzung und kann ihr daher nicht
+   * widersprechen – gedacht zum Nachvollziehen der Auswahl.
+   */
+  thirdsRanking: ThirdPlaceRow[];
 }
 
 function toQualifier(
@@ -110,7 +126,18 @@ export function qualifyFromGroups(
 ): QualificationResult {
   const winners = collect(1, groups, standingsByGroup, seedOf, options);
   const runnersUp = collect(2, groups, standingsByGroup, seedOf, options);
-  const thirds = collect(3, groups, standingsByGroup, seedOf, options).slice(0, bestThirds);
+  const allThirds = collect(3, groups, standingsByGroup, seedOf, options);
+  const thirds = allThirds.slice(0, bestThirds);
+
+  const thirdsRanking: ThirdPlaceRow[] = allThirds.map((q, i) => ({
+    playerId: q.playerId,
+    groupName: q.groupName,
+    crossRank: i + 1,
+    qualified: i < bestThirds,
+    standing: (standingsByGroup.get(q.groupId) ?? []).find(
+      (s) => s.playerId === q.playerId,
+    ) as Standing,
+  }));
 
   const pairs: Pair[] = [];
 
@@ -175,5 +202,6 @@ export function qualifyFromGroups(
     positions,
     qualifiers: [...winners, ...runnersUp, ...thirds],
     pairings: arranged.map((p) => ({ home: p.home, away: p.away })),
+    thirdsRanking,
   };
 }
