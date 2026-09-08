@@ -1109,3 +1109,104 @@
 .standings--compact .standings__club {
   font-size: 0.72rem;
 }
+
+/* ---------------------------------------------------------------- Teamplan */
+
+.teamplan__picker {
+  gap: var(--space-4);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.teamplan__picker .field {
+  min-width: 260px;
+}
+
+.teamplan__picker p {
+  margin: 0;
+  max-width: 46ch;
+}
+
+/* Die Blätter aller Teams entstehen nur für den Druck. */
+.teamplan__sheets {
+  display: none;
+}
+
+.team-sheet__head {
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.team-sheet__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.team-sheet__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.team-sheet__table tr.is-done td {
+  color: var(--c-ink-faint);
+}
+
+.team-sheet__result--win {
+  color: var(--c-green);
+  font-weight: 700;
+}
+
+.team-sheet__result--loss {
+  color: var(--c-ink-faint);
+}
+
+/* ------------------------------------------------------------------ Druck */
+
+@media print {
+  /*
+   * Gedruckt wird nur der Spielplan: Kopfzeile, Navigation und alle
+   * Bedienelemente entfallen, damit ein sauberer Aushang entsteht.
+   */
+  .app-header,
+  .no-print,
+  .live-tabs {
+    display: none !important;
+  }
+
+  .app-main {
+    padding: 0;
+    max-width: none;
+  }
+
+  .card {
+    border-color: #000;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .table-scroll {
+    overflow: visible;
+  }
+
+  /* Ein Blatt je Team – das letzte ohne zusätzlichen Seitenumbruch. */
+  .teamplan--all .teamplan__single {
+    display: none;
+  }
+
+  .teamplan--all .teamplan__sheets {
+    display: block;
+  }
+
+  .teamplan__sheets .team-sheet {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .teamplan__sheets .team-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}

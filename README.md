@@ -224,6 +224,31 @@ Browser über das `storage`-Ereignis sofort, wenn im anderen Fenster geschrieben
 erscheinen Ergebnisse dadurch meist unmittelbar, und das Intervall dient als verlässlicher Rückfall.
 Rechts oben zeigt die Seite an, in welchem Takt sie lädt und wann sie zuletzt aktualisiert hat.
 
+## Spielplan pro Team (offline abrufbar und druckbar)
+
+Die Seite **Teamplan** dreht den Spielplan von der Feld- auf die Teamsicht: oben wird ein Team
+ausgewählt, darunter stehen alle seine Spiele mit Uhrzeit, Feld, Gegner und Ergebnis. Das nächste
+Spiel steht als grüne Marke im Kopf – die häufigste Frage am Turnierabend („Wann und wo spielen
+wir?") ist damit in zwei Klicks beantwortet.
+
+Die Seite steht bereits nach *Spielplan generieren* zur Verfügung, also vor dem Turnierstart, und
+funktioniert vollständig offline – sie ist Teil derselben HTML-Datei.
+
+**Für die Ausgabe an die Teams:**
+
+- *Diesen Plan drucken* druckt das angezeigte Blatt.
+- *Alle Pläne drucken* erzeugt **ein Blatt je Team**, jeweils mit Vereinslogo, Turniername und dem
+  eigenen Spielplan. Bei 24 Teams sind das 24 Seiten.
+- Im Druckdialog statt eines Druckers *Als PDF speichern* wählen – so entsteht ohne Internet eine
+  Datei, die sich per USB-Stick oder Messenger verteilen lässt.
+
+Gedruckt werden nur die Blätter: Kopfzeile, Navigation und alle Schaltflächen bleiben außen vor.
+
+Ergebnisse erscheinen aus Sicht des jeweiligen Teams – wer 1:2 verloren hat, sieht auf dem eigenen
+Blatt `1:2`, der Gegner `2:1`. Solange die KO-Paarungen noch nicht feststehen, stehen sie auch auf
+keinem Teamblatt; nach jeder Runde lohnt sich also ein neuer Ausdruck. Ein Freilos wird als solches
+aufgeführt, allerdings ohne Uhrzeit und Feld.
+
 ## Spielplan und faire Pausen
 
 Aus Turnierstart, durchschnittlicher Spieldauer und Anzahl der Spielfelder wird ein Zeitraster
@@ -246,10 +271,11 @@ src/
     doubleKo.ts      Sieger-/Verliererrunde, Grand Final, Bracket Reset
     qualification.ts Gruppenplatzierungen → KO-Setzung
     schedule.ts      Verteilung auf Spielfelder und Zeitslots
+    teamPlan.ts      Spielplan aus Sicht eines einzelnen Teams
     tournament.ts    Orchestrierung, Phasenwechsel, Endplatzierung
     stats.ts         Ewige Tabelle über alle Turniere
   store/       Zustand-Store mit localStorage-Persistenz und Export/Import
-  pages/       Konfiguration · Turnierplan · Turnier (live) · Ewige Tabelle
+  pages/       Konfiguration · Turnierplan · Turnier (live) · Anzeige · Teamplan · Ewige Tabelle
   components/  Wiederverwendbare Bausteine (Bracket, Tabellen, Ergebnisdialog …)
 ```
 

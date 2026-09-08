@@ -19,6 +19,7 @@ import {
   startKoPhase,
   tournamentComplete,
 } from './tournament';
+import { allTeamPlans, nextTeamMatch, teamPlan } from './teamPlan';
 
 function makePlayers(count: number): Player[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -827,5 +828,95 @@ describe('Platzierungen ab der KO-Runde', () => {
     const rows = koPlacements(played);
     expect(rows.flatMap((r) => r.playerIds)).toHaveLength(5);
     expect(rows[0].playerIds).toEqual(['p1']);
+  });
+});
+
+describe('Spielplan je Team', () => {
+  it('listet in der Gruppenphase genau die eigenen Spiele in zeitlicher Reihenfolge', () => {
+    const tournament = createTournament(
+      config({ format: 'groups', participants: 16, groupCount: 4, groupSize: 4 }),
+      makePlayers(16),
+      7,
+    );
+    const gruppe = tournament.groups[0];
+    const spieler = gruppe.playerIds[0];
+
+    const plan = teamPlan(tournament, spieler);
+    expect(plan).toHaveLength(3);
+
+    // Nur Gegner aus der eigenen Gruppe, niemand doppelt, man selbst nie dabei.
+    const gegner = plan.map((m) => m.opponent.playerId);
+    expect(new Set(gegner).size).toBe(3);
+    expect(gegner).not.toContain(spieler);
+    for (const id of gegner) expect(gruppe.playerIds).toContain(id);
+
+    const zeiten = plan.map((m) => m.scheduledAt ?? '');
+    expect(zeiten).toEqual([...zeiten].sort());
+    expect(plan.every((m) => m.field !== undefined)).toBe(true);
+    expect(plan.every((m) => m.status === 'ready')).toBe(true);
+    expect(nextTeamMatch(plan)).toBe(plan[0]);
+  });
+
+  it('dreht das Ergebnis auf die Sicht des jeweiligen Teams', () => {
+    const tournament = createTournament(
+      config({ format: 'groups', participants: 16, groupCount: 4, groupSize: 4 }),
+      makePlayers(16),
+      11,
+    );
+    const partie = tournament.matches.find((m) => m.phase === 'group');
+    if (!partie) throw new Error('kein Gruppenspiel erzeugt');
+
+    // Seite B gewinnt 2:1.
+    const gespielt: Tournament = {
+      ...tournament,
+      matches: tournament.matches.map((m) =>
+        m.id === partie.id ? { ...m, result: { legsA: 1, legsB: 2 } } : m,
+      ),
+    };
+    const resolver = new Resolver(gespielt.matches);
+    const [a, b] = resolver.playerIds(partie);
+
+    const ausSichtA = teamPlan(gespielt, a).find((m) => m.matchId === partie.id);
+    const ausSichtB = teamPlan(gespielt, b).find((m) => m.matchId === partie.id);
+
+    expect(ausSichtA).toMatchObject({ result: '1:2', outcome: 'loss' });
+    expect(ausSichtB).toMatchObject({ result: '2:1', outcome: 'win' });
+    expect(ausSichtA?.opponent.playerId).toBe(b);
+    expect(ausSichtB?.opponent.playerId).toBe(a);
+  });
+
+  it('weist Freilose als Spiel ohne Termin aus', () => {
+    const tournament = createTournament(config({ format: 'single_ko', participants: 6 }), makePlayers(6), 3);
+    const resolver = new Resolver(tournament.matches);
+    const freilos = tournament.matches.find((m) => resolver.isWalkover(m));
+    if (!freilos) throw new Error('bei 6 Teilnehmern muss es Freilose geben');
+
+    const [gluecklicher] = resolver.playerIds(freilos);
+    const zeile = teamPlan(tournament, gluecklicher).find((m) => m.matchId === freilos.id);
+
+    expect(zeile).toMatchObject({ walkover: true, status: 'done' });
+    expect(zeile?.opponent.name).toBe('Freilos');
+    expect(zeile?.scheduledAt).toBeUndefined();
+    expect(zeile?.field).toBeUndefined();
+  });
+
+  it('führt jedes Team mit Gruppe auf und zeigt nur bereits feststehende Spiele', () => {
+    const tournament = createTournament(
+      config({ format: 'groups', participants: 16, groupCount: 4, groupSize: 4 }),
+      makePlayers(16),
+      5,
+    );
+    const plaene = allTeamPlans(tournament);
+
+    expect(plaene).toHaveLength(16);
+    expect(plaene.every((p) => p.groupName?.startsWith('Gruppe'))).toBe(true);
+    expect(plaene.map((p) => p.player.name)).toEqual(
+      [...plaene.map((p) => p.player.name)].sort((x, y) => x.localeCompare(y, 'de')),
+    );
+
+    // Die KO-Spiele sind noch nicht gesetzt und gehören daher keinem Team.
+    expect(plaene.every((p) => p.matches.length === 3)).toBe(true);
+    const gesamt = plaene.reduce((sum, p) => sum + p.matches.length, 0);
+    expect(gesamt).toBe(tournament.matches.filter((m) => m.phase === 'group').length * 2);
   });
 });

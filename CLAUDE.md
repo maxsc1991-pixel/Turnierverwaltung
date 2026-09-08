@@ -117,6 +117,22 @@ nichts über die Runde. Freilos-Spiele zählen mit: wer ein Freilos hatte, hat d
 Ohne KO-Phase liefert `koPlacements()` alle Teilnehmer nach der Gruppentabelle. Die Darstellung
 teilen sich Turnieransicht, Anzeigeseite und Archiv über `components/PlacementTable.tsx`.
 
+### Spielplan je Team
+
+`engine/teamPlan.ts` dreht den Spielplan von der Feld- auf die Teamsicht: `teamPlan()` liefert alle
+Spiele eines Teams samt Gegner, Zeit, Feld und **gespiegeltem Ergebnis** – wer auf Seite B stand,
+sieht `2:1` statt `1:2`.
+
+Aufgeführt wird nur, was schon feststeht. Ein KO-Spiel der nächsten Runde hat noch keinen Spieler in
+seinen Slots und gehört damit keinem Team; erst mit dem Ergebnis des Vorspiels taucht es im Plan auf.
+Freilose bleiben mit dem Vermerk „Freilos" stehen, aber ohne Zeit und Feld – sonst sucht jemand ein
+Spiel, das nie stattfindet.
+
+Gedruckt wird über `@media print` in `styles/components.css`: `.no-print` blendet die Bedienung aus,
+`.teamplan--all` schaltet vom einzelnen Blatt auf alle Blätter um, `break-after: page` je
+`.team-sheet` ergibt genau ein Blatt pro Team. Der Umschalter ist Zustand der Seite und wird nach
+`window.print()` wieder zurückgenommen – die Blätter dürfen auf dem Bildschirm nie erscheinen.
+
 ### Zustand und Persistenz
 
 Ein zustand-Store (`src/store/useTournamentStore.ts`) mit `persist` unter dem versionierten Schlüssel
@@ -138,6 +154,7 @@ Takt und zusätzlich sofort über das `storage`-Ereignis.
 #/ko-start  KoSetupPage   nur Gruppenmodus: Einstellungen der KO-Phase + Setzung
 #/live      LivePage      Gruppen/Bracket links, laufende Spiele rechts, Ergebniseingabe
 #/anzeige   DisplayPage   Zuschaueransicht, ohne Bedienelemente, selbstaktualisierend
+#/teamplan  TeamPlanPage  Spielplan eines einzelnen Teams, druckbar – ein Blatt je Team
 #/historie  HistoryPage   ewige Tabelle, Archiv, JSON-Export/-Import
 ```
 

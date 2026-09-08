@@ -5,6 +5,7 @@ import { PlanPage } from './pages/PlanPage';
 import { KoSetupPage } from './pages/KoSetupPage';
 import { LivePage } from './pages/LivePage';
 import { DisplayPage } from './pages/DisplayPage';
+import { TeamPlanPage } from './pages/TeamPlanPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { useTournamentStore } from './store/useTournamentStore';
 
@@ -39,6 +40,9 @@ function Header() {
           <NavLink to="/anzeige" className={linkClass} aria-disabled={!liveReady}>
             Anzeige
           </NavLink>
+          <NavLink to="/teamplan" className={linkClass} aria-disabled={!planReady}>
+            Teamplan
+          </NavLink>
           <NavLink to="/historie" className={linkClass}>
             Ewige Tabelle
           </NavLink>
@@ -60,6 +64,7 @@ export default function App() {
             <Route path="/ko-start" element={<KoSetupPage />} />
             <Route path="/live" element={<LivePage />} />
             <Route path="/anzeige" element={<DisplayPage />} />
+            <Route path="/teamplan" element={<TeamPlanPage />} />
             <Route path="/historie" element={<HistoryPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
