@@ -217,9 +217,14 @@ Teilnehmer aufgeführt.
 ## Anzeigeseite für die Teilnehmer
 
 Die Seite **Anzeige** stellt den Turnierstand kompakt und ohne Bedienelemente dar – gedacht für einen
-zweiten Bildschirm, einen Beamer oder ein Tablet im Gastraum. Sie zeigt die gerade laufenden Spiele
-groß hervorgehoben, die Gruppentabellen, die nächsten Paarungen mit Uhrzeit und Feld, den
-Turnierbaum der KO-Phase und am Ende das Podest.
+zweiten Bildschirm, einen Beamer oder ein Tablet im Gastraum. Ganz oben stehen immer die gerade
+laufenden Spiele, ganz unten am Turnierende das Podest mit der vollständigen Platzierung.
+
+**Was dazwischen oben steht, wechselt mit der Phase:** In der Gruppenphase sind es die
+Gruppentabellen neben den nächsten Paarungen. Sobald die KO-Phase läuft, tauschen Turnierbaum und
+Gruppentabellen den Platz – der Baum rückt in voller Breite nach oben, die Gruppentabellen wandern
+darunter neben die Vorschau. So steht auf dem Beamer immer das oben, worum gerade gespielt wird, und
+der Baum bleibt breit genug, dass auch das Finale ohne Scrollen zu sehen ist.
 
 **Eigenes Fenster und Selbstaktualisierung:** Auf der Konfigurationsseite gibt es die Schaltfläche
 *Anzeige in neuem Fenster öffnen* – so läuft die Tafel auf dem zweiten Bildschirm, während im ersten

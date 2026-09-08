@@ -97,6 +97,122 @@ export function DisplayPage() {
 
   const nameOf = (slot: Match['a']) => describeSlot(slot, resolver, players, byId);
 
+  /*
+   * Gruppentabellen und Turnierbaum tauschen mit der Phase den Platz: in der
+   * Gruppenphase stehen die Tabellen neben der Vorschau, in der KO-Phase der
+   * Baum – was gerade entschieden wird, steht oben.
+   */
+  const groupsSection = groups.length > 0 ? (
+    <section className="display__section">
+      <h2 className="display__title">
+        {inGroupPhase || !showKo ? 'Gruppenstand' : 'Endstand der Gruppen'}
+        {groupPhaseComplete(tournament) && (
+          <span className="badge badge--green">abgeschlossen</span>
+        )}
+      </h2>
+      <div className="display__groups">
+        {groups.map((group) => (
+          <div className="display__group" key={group.id}>
+            <div className="display__group-head">
+              <span>{group.name}</span>
+              {group.field && <span className="badge badge--red">Feld {group.field}</span>}
+            </div>
+            <StandingsTable
+              standings={standings.get(group.id) ?? []}
+              players={players}
+              qualifyingPlaces={needsKo ? 2 : 0}
+              thirdPlaceCandidate={(option?.bestThirds ?? 0) > 0}
+              showPoints={config.sport === 'cornhole'}
+              compact
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  ) : null;
+
+  const koSection = (
+    <section className="display__section">
+      <h2 className="display__title">
+        KO-Phase
+        {option && <span className="badge">{roundNames(option.qualifiers).join(' → ')}</span>}
+      </h2>
+      <div className="display__bracket">
+        {koRounds(koMatches).map((round) => (
+          <div className="display__round" key={round.title}>
+            <div className="display__round-title">{round.title}</div>
+            {round.matches.map((match) => {
+              const a = nameOf(match.a);
+              const b = nameOf(match.b);
+              const winner = resolver.winner(match.id);
+              const winnerId = winner.kind === 'player' ? winner.playerId : undefined;
+              const cls = (side: typeof a) =>
+                side.playerId && side.playerId === winnerId
+                  ? 'display__slot display__slot--winner'
+                  : 'display__slot';
+              return (
+                <div className="display__match" key={match.id}>
+                  <div className={cls(a)}>
+                    <span>
+                      {a.name}
+                      <Origin origins={origins} playerId={a.playerId} />
+                    </span>
+                    <b>{match.result?.legsA ?? ''}</b>
+                  </div>
+                  <div className={cls(b)}>
+                    <span>
+                      {b.name}
+                      <Origin origins={origins} playerId={b.playerId} />
+                    </span>
+                    <b>{match.result?.legsB ?? ''}</b>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+
+  const upcomingSection = (
+    <section className="display__section">
+      <h2 className="display__title">Als Nächstes</h2>
+      {upcoming.length === 0 ? (
+        <p className="display__empty">Keine weiteren Paarungen.</p>
+      ) : (
+        <ul className="display__next">
+          {upcoming.map((match) => {
+            const a = nameOf(match.a);
+            const b = nameOf(match.b);
+            return (
+              <li key={match.id}>
+                <span className="display__next-time">{formatTime(match.scheduledAt)}</span>
+                <span className="display__next-pair">
+                  <span>
+                    {a.name}
+                    <Origin origins={origins} playerId={a.playerId} hide={inGroupPhase} />
+                    <span className="muted"> – </span>
+                    {b.name}
+                    <Origin origins={origins} playerId={b.playerId} hide={inGroupPhase} />
+                  </span>
+                  {(a.club || b.club) && (
+                    <span className="display__next-clubs">
+                      {a.club ?? '–'} <span className="muted">/</span> {b.club ?? '–'}
+                    </span>
+                  )}
+                </span>
+                <span className="display__next-meta">
+                  {match.field ? `Feld ${match.field}` : match.roundLabel}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+
   return (
     <div className="display">
       <div className="display__head">
@@ -176,118 +292,20 @@ export function DisplayPage() {
         )}
       </section>
 
-      <div className="display__columns">
-        {/* Gruppenstände */}
-        {groups.length > 0 && (
-          <section className="display__section">
-            <h2 className="display__title">
-              {inGroupPhase || !showKo ? 'Gruppenstand' : 'Endstand der Gruppen'}
-              {groupPhaseComplete(tournament) && (
-                <span className="badge badge--green">abgeschlossen</span>
-              )}
-            </h2>
-            <div className="display__groups">
-              {groups.map((group) => (
-                <div className="display__group" key={group.id}>
-                  <div className="display__group-head">
-                    <span>{group.name}</span>
-                    {group.field && <span className="badge badge--red">Feld {group.field}</span>}
-                  </div>
-                  <StandingsTable
-                    standings={standings.get(group.id) ?? []}
-                    players={players}
-                    qualifyingPlaces={needsKo ? 2 : 0}
-                    thirdPlaceCandidate={(option?.bestThirds ?? 0) > 0}
-                    showPoints={config.sport === 'cornhole'}
-                    compact
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+      {/*
+        In der KO-Phase steht der Turnierbaum an der Stelle der Gruppentabellen;
+        die Tabellen rücken nach unten. Der Baum bekommt dabei die volle Breite –
+        in einer Spalte müsste man auf dem Beamer scrollen, um das Finale zu sehen.
+      */}
+      {showKo && koSection}
 
-        {/* Kommende Paarungen */}
-        <section className="display__section">
-          <h2 className="display__title">Als Nächstes</h2>
-          {upcoming.length === 0 ? (
-            <p className="display__empty">Keine weiteren Paarungen.</p>
-          ) : (
-            <ul className="display__next">
-              {upcoming.map((match) => {
-                const a = nameOf(match.a);
-                const b = nameOf(match.b);
-                return (
-                  <li key={match.id}>
-                    <span className="display__next-time">{formatTime(match.scheduledAt)}</span>
-                    <span className="display__next-pair">
-                      <span>
-                        {a.name}
-                        <Origin origins={origins} playerId={a.playerId} hide={inGroupPhase} />
-                        <span className="muted"> – </span>
-                        {b.name}
-                        <Origin origins={origins} playerId={b.playerId} hide={inGroupPhase} />
-                      </span>
-                      {(a.club || b.club) && (
-                        <span className="display__next-clubs">
-                          {a.club ?? '–'} <span className="muted">/</span> {b.club ?? '–'}
-                        </span>
-                      )}
-                    </span>
-                    <span className="display__next-meta">
-                      {match.field ? `Feld ${match.field}` : match.roundLabel}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </div>
-
-      {/* Turnierbaum – kompakt, ohne Bedienelemente */}
-      {showKo && (
-        <section className="display__section">
-          <h2 className="display__title">
-            KO-Phase
-            {option && <span className="badge">{roundNames(option.qualifiers).join(' → ')}</span>}
-          </h2>
-          <div className="display__bracket">
-            {koRounds(koMatches).map((round) => (
-              <div className="display__round" key={round.title}>
-                <div className="display__round-title">{round.title}</div>
-                {round.matches.map((match) => {
-                  const a = nameOf(match.a);
-                  const b = nameOf(match.b);
-                  const winner = resolver.winner(match.id);
-                  const winnerId = winner.kind === 'player' ? winner.playerId : undefined;
-                  const cls = (side: typeof a) =>
-                    side.playerId && side.playerId === winnerId
-                      ? 'display__slot display__slot--winner'
-                      : 'display__slot';
-                  return (
-                    <div className="display__match" key={match.id}>
-                      <div className={cls(a)}>
-                        <span>
-                          {a.name}
-                          <Origin origins={origins} playerId={a.playerId} />
-                        </span>
-                        <b>{match.result?.legsA ?? ''}</b>
-                      </div>
-                      <div className={cls(b)}>
-                        <span>
-                          {b.name}
-                          <Origin origins={origins} playerId={b.playerId} />
-                        </span>
-                        <b>{match.result?.legsB ?? ''}</b>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </section>
+      {groupsSection ? (
+        <div className="display__columns">
+          {groupsSection}
+          {upcomingSection}
+        </div>
+      ) : (
+        upcomingSection
       )}
 
       {tournament.stage === 'finished' && tournament.finalRanking && (

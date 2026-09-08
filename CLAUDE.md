@@ -146,6 +146,11 @@ Persistiert werden `config`, `players`, `active`, `archive` und `displayRefreshS
 Datenmodell inkompatibel geändert, den Schlüssel hochzählen oder eine Migration ergänzen** – sonst
 laufen gespeicherte Turniere der Anwender in undefiniertes Verhalten.
 
+Auf der Anzeigeseite tauschen Turnierbaum und Gruppentabellen mit der Phase den Platz: die Abschnitte
+liegen als Konstanten (`groupsSection`, `koSection`, `upcomingSection`) vor dem `return`, das sie nur
+noch anordnet. Der Baum steht dabei immer in voller Breite – in einer Spalte des Zweispalters müsste
+man auf dem Beamer scrollen, um das Finale zu sehen.
+
 Die Anzeigeseite (`#/anzeige`) läuft typischerweise in einem zweiten Fenster mit eigenem
 Speicherzustand. Sie holt sich Änderungen über `persist.rehydrate()` – zyklisch im eingestellten
 Takt und zusätzlich sofort über das `storage`-Ereignis.
