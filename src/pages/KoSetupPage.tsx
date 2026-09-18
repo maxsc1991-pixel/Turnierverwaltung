@@ -312,7 +312,11 @@ function ThirdsRanking({
   players: readonly Player[];
   showPoints: boolean;
 }) {
-  const columns = showPoints ? 7 : 6;
+  // Wie in den Gruppentabellen: die Punktespalte erscheint nur, wenn auch
+  // Punkte erfasst wurden – über mehrere Legs sind sie freiwillig.
+  const withPoints =
+    showPoints && rows.some((r) => r.standing.pointsFor > 0 || r.standing.pointsAgainst > 0);
+  const columns = withPoints ? 7 : 6;
 
   return (
     <div className="table-scroll">
@@ -331,7 +335,7 @@ function ThirdsRanking({
             <th className="num" title="Leg-Differenz">
               Diff
             </th>
-            {showPoints && (
+            {withPoints && (
               <th className="num" title="Punktdifferenz">
                 PD
               </th>
@@ -358,7 +362,7 @@ function ThirdsRanking({
                     {row.standing.legDiff > 0 ? '+' : ''}
                     {row.standing.legDiff}
                   </td>
-                  {showPoints && (
+                  {withPoints && (
                     <td className="num mono">
                       {row.standing.pointsDiff > 0 ? '+' : ''}
                       {row.standing.pointsDiff}

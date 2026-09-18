@@ -1,8 +1,29 @@
-import type { Match, Standing } from './types';
+import type { Match, Scoring, Standing } from './types';
 
 export const POINTS_WIN = 2;
 export const POINTS_DRAW = 1;
 export const POINTS_LOSS = 0;
+
+/** Leg-Bonus-Wertung: Sieg ohne Leg-Verlust, Sieg, mindestens ein Leg gewonnen. */
+export const BONUS_CLEAN_WIN = 3;
+export const BONUS_WIN = 2;
+export const BONUS_LEG = 1;
+
+/**
+ * Punkte eines einzelnen Spiels aus Sicht einer Seite.
+ *
+ * Die Leg-Bonus-Wertung hängt nur davon ab, **ob** der Verlierer ein Leg geholt
+ * hat, nicht wie viele – dadurch skaliert sie über jedes Best of: 2:0 und 3:0
+ * geben gleichermaßen 3 Punkte, 2:1 und 3:2 gleichermaßen 2.
+ */
+export function matchPoints(legsFor: number, legsAgainst: number, scoring: Scoring): number {
+  if (scoring === 'legBonus') {
+    if (legsFor > legsAgainst) return legsAgainst === 0 ? BONUS_CLEAN_WIN : BONUS_WIN;
+    return legsFor > 0 ? BONUS_LEG : POINTS_LOSS;
+  }
+  if (legsFor > legsAgainst) return POINTS_WIN;
+  return legsFor === legsAgainst ? POINTS_DRAW : POINTS_LOSS;
+}
 
 interface Tally {
   playerId: string;
@@ -23,6 +44,17 @@ export interface StandingsOptions {
    * Turnierpunkte → Leg-Differenz → Punktdifferenz → direkter Vergleich.
    */
   usePoints?: boolean;
+  /** Wertung der einzelnen Spiele – siehe `matchPoints`. */
+  scoring?: Scoring;
+}
+
+interface Rules {
+  usePoints: boolean;
+  scoring: Scoring;
+}
+
+function rules(options: StandingsOptions): Rules {
+  return { usePoints: options.usePoints ?? false, scoring: options.scoring ?? 'standard' };
 }
 
 function emptyTally(playerId: string): Tally {
@@ -43,7 +75,11 @@ function emptyTally(playerId: string): Tally {
 const legDiff = (t: Tally) => t.legsFor - t.legsAgainst;
 const pointsDiff = (t: Tally) => t.pointsFor - t.pointsAgainst;
 
-function tally(playerIds: readonly string[], matches: readonly Match[]): Map<string, Tally> {
+function tally(
+  playerIds: readonly string[],
+  matches: readonly Match[],
+  scoring: Scoring,
+): Map<string, Tally> {
   const table = new Map(playerIds.map((id) => [id, emptyTally(id)]));
 
   for (const match of matches) {
@@ -73,38 +109,39 @@ function tally(playerIds: readonly string[], matches: readonly Match[]): Map<str
     if (legsA > legsB) {
       a.won++;
       b.lost++;
-      a.points += POINTS_WIN;
-      b.points += POINTS_LOSS;
     } else if (legsA < legsB) {
       b.won++;
       a.lost++;
-      b.points += POINTS_WIN;
-      a.points += POINTS_LOSS;
     } else {
       a.drawn++;
       b.drawn++;
-      a.points += POINTS_DRAW;
-      b.points += POINTS_DRAW;
     }
+
+    a.points += matchPoints(legsA, legsB, scoring);
+    b.points += matchPoints(legsB, legsA, scoring);
   }
 
   return table;
 }
 
 /** Die Kriterien vor dem direkten Vergleich – sie bilden die Gleichstandsblöcke. */
-function primaryKeys(t: Tally, usePoints: boolean): number[] {
-  return usePoints ? [t.points, legDiff(t), pointsDiff(t)] : [t.points, legDiff(t)];
+function primaryKeys(t: Tally, rule: Rules): number[] {
+  // In der Leg-Bonus-Wertung steckt die Leg-Ausbeute bereits in den Punkten.
+  // Sie erneut als Kriterium zu führen, würde dasselbe zweimal werten – nach
+  // den Punkten entscheidet deshalb direkt der direkte Vergleich.
+  if (rule.scoring === 'legBonus') return [t.points];
+  return rule.usePoints ? [t.points, legDiff(t), pointsDiff(t)] : [t.points, legDiff(t)];
 }
 
-function sameBlock(x: Tally, y: Tally, usePoints: boolean): boolean {
-  const a = primaryKeys(x, usePoints);
-  const b = primaryKeys(y, usePoints);
+function sameBlock(x: Tally, y: Tally, rule: Rules): boolean {
+  const a = primaryKeys(x, rule);
+  const b = primaryKeys(y, rule);
   return a.every((value, index) => value === b[index]);
 }
 
-function compareKeys(x: Tally, y: Tally, usePoints: boolean): number {
-  const a = primaryKeys(x, usePoints);
-  const b = primaryKeys(y, usePoints);
+function compareKeys(x: Tally, y: Tally, rule: Rules): number {
+  const a = primaryKeys(x, rule);
+  const b = primaryKeys(y, rule);
   for (let i = 0; i < a.length; i++) {
     if (a[i] !== b[i]) return b[i] - a[i];
   }
@@ -115,6 +152,9 @@ function compareKeys(x: Tally, y: Tally, usePoints: boolean): number {
  * Sortiert eine Gruppe nach: Turnierpunkte → Leg-Differenz → (beim Cornhole
  * Punktdifferenz) → direkter Vergleich → gewonnene Legs → Setzlistenposition
  * als deterministischer Losentscheid.
+ *
+ * In der Leg-Bonus-Wertung entfallen Leg- und Punktdifferenz als Kriterium:
+ * Turnierpunkte → direkter Vergleich → gewonnene Legs → Setzlistenposition.
  */
 export function computeStandings(
   playerIds: readonly string[],
@@ -122,22 +162,22 @@ export function computeStandings(
   seedOf: (playerId: string) => number,
   options: StandingsOptions = {},
 ): Standing[] {
-  const usePoints = options.usePoints ?? false;
-  const table = tally(playerIds, matches);
+  const rule = rules(options);
+  const table = tally(playerIds, matches, rule.scoring);
   const entries = playerIds.map((id) => table.get(id) ?? emptyTally(id));
 
-  const sorted = entries.slice().sort((x, y) => compareKeys(x, y, usePoints));
+  const sorted = entries.slice().sort((x, y) => compareKeys(x, y, rule));
 
   const result: Standing[] = [];
   let i = 0;
   while (i < sorted.length) {
     let j = i + 1;
-    while (j < sorted.length && sameBlock(sorted[j], sorted[i], usePoints)) j++;
+    while (j < sorted.length && sameBlock(sorted[j], sorted[i], rule)) j++;
 
     const block = sorted.slice(i, j);
     const ordered: Array<{ tally: Tally; tiebreak?: string }> =
       block.length > 1
-        ? breakTie(block, matches, seedOf, usePoints)
+        ? breakTie(block, matches, seedOf, rule)
         : block.map((t) => ({ tally: t }));
 
     ordered.forEach((entry, offset) => {
@@ -174,7 +214,7 @@ function breakTie(
   block: readonly Tally[],
   matches: readonly Match[],
   seedOf: (playerId: string) => number,
-  usePoints: boolean,
+  rule: Rules,
 ): Array<{ tally: Tally; tiebreak?: string }> {
   const ids = new Set(block.map((t) => t.playerId));
   const internal = matches.filter(
@@ -185,7 +225,7 @@ function breakTie(
       ids.has(m.a.playerId) &&
       ids.has(m.b.playerId),
   );
-  const mini = tally([...ids], internal);
+  const mini = tally([...ids], internal, rule.scoring);
 
   return block
     .slice()
@@ -193,7 +233,7 @@ function breakTie(
       const direct = compareKeys(
         mini.get(x.playerId) as Tally,
         mini.get(y.playerId) as Tally,
-        usePoints,
+        rule,
       );
       if (direct !== 0) return direct;
 
@@ -207,7 +247,7 @@ function breakTie(
       const decidedDirectly = block.some(
         (other) =>
           other.playerId !== t.playerId &&
-          compareKeys(own, mini.get(other.playerId) as Tally, usePoints) !== 0,
+          compareKeys(own, mini.get(other.playerId) as Tally, rule) !== 0,
       );
       if (decidedDirectly) return { tally: t, tiebreak: 'Direkter Vergleich' };
 
@@ -226,11 +266,15 @@ export function rankAcrossGroups(
   seedOf: (playerId: string) => number,
   options: StandingsOptions = {},
 ): Standing[] {
-  const usePoints = options.usePoints ?? false;
+  const rule = rules(options);
   return candidates.slice().sort((x, y) => {
     if (y.points !== x.points) return y.points - x.points;
-    if (y.legDiff !== x.legDiff) return y.legDiff - x.legDiff;
-    if (usePoints && y.pointsDiff !== x.pointsDiff) return y.pointsDiff - x.pointsDiff;
+    // Einen direkten Vergleich gibt es zwischen Gruppen nicht; in der
+    // Leg-Bonus-Wertung entscheiden deshalb gleich die gewonnenen Legs.
+    if (rule.scoring !== 'legBonus') {
+      if (y.legDiff !== x.legDiff) return y.legDiff - x.legDiff;
+      if (rule.usePoints && y.pointsDiff !== x.pointsDiff) return y.pointsDiff - x.pointsDiff;
+    }
     if (y.legsFor !== x.legsFor) return y.legsFor - x.legsFor;
     return seedOf(x.playerId) - seedOf(y.playerId);
   });

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Match, MatchResult, Player, TournamentConfig } from '../engine/types';
-import { bestOf, legsToWin, requiresPoints } from '../engine/types';
+import { bestOf, legsToWin, requiresPoints, showsPoints } from '../engine/types';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
 import {
@@ -44,6 +44,7 @@ export function ResultDialog({
 
   const { errors, result } = validateResult(config, draft, { allowDraw });
   const needsPoints = requiresPoints(config);
+  const pointsVisible = showsPoints(config);
 
   useEffect(() => {
     const parsed = parseScoreShorthand(shorthand);
@@ -135,11 +136,12 @@ export function ResultDialog({
               </div>
             </div>
 
-            {needsPoints && (
+            {pointsVisible && (
               <div className="field">
                 <span className="field-label">
                   {bestOf(config) > 1 ? 'Punkte gesamt' : 'Punkte'}
                   {config.sport === 'cornhole' ? ` (Leg bis ${config.cornhole.targetPoints})` : ''}
+                  {!needsPoints && <span className="faint"> · optional</span>}
                 </span>
                 <div className="score-input">
                   <input
@@ -160,6 +162,11 @@ export function ResultDialog({
                     onChange={(e) => setDraft({ ...draft, pointsB: e.target.value })}
                   />
                 </div>
+                {!needsPoints && (
+                  <span className="field__hint">
+                    Summe über alle Legs. Kann leer bleiben – dann zählen nur die Legs.
+                  </span>
+                )}
               </div>
             )}
 
@@ -169,7 +176,9 @@ export function ResultDialog({
                 id="shorthand"
                 type="text"
                 value={shorthand}
-                placeholder={needsPoints ? '1:0 (21:17)' : '2:1'}
+                placeholder={
+                  pointsVisible ? (bestOf(config) > 1 ? '2:1 (42:35)' : '1:0 (21:17)') : '2:1'
+                }
                 onChange={(e) => setShorthand(e.target.value)}
               />
               <span className="field__hint">

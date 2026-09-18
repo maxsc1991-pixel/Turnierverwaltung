@@ -1,6 +1,7 @@
 import type { Sport, Tournament } from './types';
+import { applyKoSettings, scoringOf } from './types';
 import { Resolver } from './resolve';
-import { POINTS_DRAW, POINTS_WIN } from './standings';
+import { matchPoints } from './standings';
 
 export interface PlayerStats {
   key: string;
@@ -60,6 +61,12 @@ export function computeAllTimeStats(
     const resolver = new Resolver(tournament.matches);
     const byId = new Map(tournament.players.map((p) => [p.id, p]));
 
+    // Jedes Turnier bringt seine eigene Wertung mit; die KO-Phase kann dabei
+    // eine andere Leg-Anzahl haben als die Gruppenphase und damit auch eine
+    // andere geltende Wertung (ein einzelnes Leg wird immer standard gewertet).
+    const groupScoring = scoringOf(tournament.config);
+    const koScoring = scoringOf(applyKoSettings(tournament.config, tournament.ko));
+
     const entryFor = (playerId: string): PlayerStats | undefined => {
       const player = byId.get(playerId);
       if (!player) return undefined;
@@ -98,17 +105,17 @@ export function computeAllTimeStats(
       if (legsA > legsB) {
         sa.won++;
         sb.lost++;
-        sa.points += POINTS_WIN;
       } else if (legsB > legsA) {
         sb.won++;
         sa.lost++;
-        sb.points += POINTS_WIN;
       } else {
         sa.drawn++;
         sb.drawn++;
-        sa.points += POINTS_DRAW;
-        sb.points += POINTS_DRAW;
       }
+
+      const scoring = match.phase === 'group' ? groupScoring : koScoring;
+      sa.points += matchPoints(legsA, legsB, scoring);
+      sb.points += matchPoints(legsB, legsA, scoring);
     }
 
     for (const entry of tournament.finalRanking ?? []) {

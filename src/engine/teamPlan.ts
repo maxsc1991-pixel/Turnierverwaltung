@@ -79,8 +79,60 @@ export function allTeamPlans(tournament: Tournament): TeamPlan[] {
 }
 
 /** Das nächste noch offene Spiel – für den Hinweis oben auf dem Aushang. */
-export function nextTeamMatch(matches: readonly TeamMatch[]): TeamMatch | undefined {
+export function nextOpenMatch<T extends { status: MatchStatus }>(
+  matches: readonly T[],
+): T | undefined {
   return matches.find((m) => m.status !== 'done');
+}
+
+export interface FieldMatch {
+  matchId: string;
+  label: string;
+  scheduledAt?: string;
+  /** Beide Seiten – in der KO-Phase auch als Platzhalter ("Sieger Halbfinale 1"). */
+  home: SideInfo;
+  away: SideInfo;
+  status: MatchStatus;
+  /** Ergebnis in der Reihenfolge der beiden Seiten, z.B. "2:1 (42:35)". */
+  result?: string;
+}
+
+export interface FieldPlan {
+  field: number;
+  matches: FieldMatch[];
+}
+
+/**
+ * Spielplan je Spielfeld – der Aushang fürs Board bzw. für die Bahn.
+ *
+ * Anders als beim Teamplan bleiben noch offene KO-Paarungen in der Liste: am
+ * Feld zählt, wann es belegt ist, auch wenn die Namen erst durch das Vorspiel
+ * feststehen. Freilose stehen nicht darin, sie werden nie gespielt.
+ */
+export function allFieldPlans(tournament: Tournament): FieldPlan[] {
+  const resolver = new Resolver(tournament.matches);
+  const byId = indexMatches(tournament.matches);
+  const plans = new Map<number, FieldMatch[]>();
+
+  for (const match of tournament.matches) {
+    if (match.field === undefined || resolver.isWalkover(match)) continue;
+
+    const rows = plans.get(match.field) ?? [];
+    rows.push({
+      matchId: match.id,
+      label: match.label,
+      scheduledAt: match.scheduledAt,
+      home: describeSlot(match.a, resolver, tournament.players, byId),
+      away: describeSlot(match.b, resolver, tournament.players, byId),
+      status: resolver.status(match),
+      result: match.result ? formatResult(match) : undefined,
+    });
+    plans.set(match.field, rows);
+  }
+
+  return [...plans.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([field, matches]) => ({ field, matches: matches.sort(byTime) }));
 }
 
 function sideOf(match: Match, resolver: Resolver, playerId: string): 'a' | 'b' | undefined {
@@ -110,7 +162,7 @@ function outcomeFor(match: Match, side: 'a' | 'b'): 'win' | 'loss' | 'draw' | un
 }
 
 /** Ohne Zeit terminierte Spiele (Freilose) stehen am Ende. */
-function byTime(a: TeamMatch, b: TeamMatch): number {
+function byTime(a: { scheduledAt?: string }, b: { scheduledAt?: string }): number {
   if (!a.scheduledAt && !b.scheduledAt) return 0;
   if (!a.scheduledAt) return 1;
   if (!b.scheduledAt) return -1;

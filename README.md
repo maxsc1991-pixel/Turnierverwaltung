@@ -139,23 +139,55 @@ Ein Unentschieden ist nur in der Gruppenphase und nur bei geradem N möglich (z.
 **Dart:** Eine der drei Spielarten 301 Double Out, 501 Double Out oder Cricket gilt für das ganze
 Turnier. Die Leg-Anzahl wird je Spielart getrennt gespeichert und bleibt beim Umschalten erhalten.
 
-**Cornhole:** Ein Leg endet bei 21 Punkten. Zusätzlich zu den Legs wird immer das Punkteergebnis
-erfasst.
+**Cornhole:** Ein Leg endet bei 21 Punkten.
 
-**Ergebniseingabe:** Die Legs sind Pflicht. Punkte müssen zusätzlich eingetragen werden, wenn
-Cornhole gespielt wird oder wenn ein Spiel über ein einzelnes Leg entschieden wird. Die
-Schnelleingabe akzeptiert Kurzformen wie `1:0 (21:17)`.
+**Ergebniseingabe:** Die Legs sind Pflicht. Das Punkteergebnis ist nur dann Pflicht, wenn ein Spiel
+über ein **einzelnes Leg** entschieden wird – dort ist es das eigentliche Ergebnis. Über mehrere Legs
+ist es **freiwillig**: beim Cornhole stehen die Felder bereit und dürfen leer bleiben, beim Dart
+werden sie gar nicht erst angeboten. Wer sie ausfüllt, trägt die Gesamtsumme über alle Legs ein –
+entweder für beide Seiten oder für keine. Die Schnelleingabe akzeptiert Kurzformen wie `1:0 (21:17)`
+und `2:1 (42:35)`.
 
-**Wertung:** Sieg = 2 Punkte, Unentschieden = 1, Niederlage = 0. Die Gruppenplatzierung entscheidet
-sich nach **Punkte → Leg-Differenz → direkter Vergleich → gewonnene Legs → Losentscheid**.
+### Wertung der Gruppentabelle
 
-Beim **Cornhole** zählen zusätzlich die erzielten Punkte: die Reihenfolge lautet dort
+Auf der Konfigurationsseite lässt sich zwischen zwei Wertungen wählen. Sie betrifft nur die
+Gruppentabelle; die KO-Runde entscheidet ohnehin jedes Spiel für sich.
+
+**2 Punkte je Sieg** (Voreinstellung): Sieg = 2, Unentschieden = 1, Niederlage = 0. Die Reihenfolge
+lautet **Punkte → Leg-Differenz → direkter Vergleich → gewonnene Legs → Losentscheid**.
+
+Beim **Cornhole** zählen in dieser Wertung zusätzlich die erzielten Punkte:
 **Punkte → Leg-Differenz → Punktdifferenz → direkter Vergleich → Losentscheid**. Das ist nötig, weil
-die Leg-Differenz beim Cornhole grob ausfällt (bei Best of 1 nur ±1) und sonst zu viele
-Gleichstände entstünden. Die Gruppentabelle zeigt dafür zwei zusätzliche Spalten: *Punkte*
-(erzielt:kassiert) und *PD* (Punktdifferenz). Werden mehrere Legs gespielt, ist die Punkteingabe die
-Gesamtsumme über alle Legs – ein 2:1-Sieg mit insgesamt weniger Punkten ist dabei ausdrücklich
-zulässig.
+die Leg-Differenz beim Cornhole grob ausfällt (bei Best of 1 nur ±1) und sonst zu viele Gleichstände
+entstünden. Die Gruppentabelle zeigt dafür zwei zusätzliche Spalten: *Punkte* (erzielt:kassiert) und
+*PD* (Punktdifferenz). Sie erscheinen nur, wenn auch Punkte erfasst wurden.
+
+**3 – 2 – 1 – 0** (nur bei mehr als einem Leg): Das Ergebnis eines Spiels zählt feiner.
+
+| Ergebnis | Punkte | |
+|---|---|---|
+| 2:0 | 3 | Sieg ohne verlorenes Leg |
+| 2:1 | 2 | Sieg mit mindestens einem verlorenen Leg |
+| 1:2 | 1 | Niederlage mit mindestens einem gewonnenen Leg |
+| 0:2 | 0 | Niederlage ohne gewonnenes Leg |
+
+Die Regel hängt nur davon ab, **ob** der Verlierer ein Leg geholt hat, und gilt deshalb bei jedem
+Best of: 3:0 gibt ebenso 3 Punkte wie 2:0, ein 3:2 ebenso 2 wie ein 2:1. Ein Unentschieden (nur bei
+geradem Best of möglich) gibt beiden 1 Punkt.
+
+In dieser Wertung steckt die Leg-Ausbeute bereits in den Punkten. **Leg-Differenz und Punktdifferenz
+entfallen deshalb als Kriterium** – sie bleiben nur als Spalte stehen. Die Reihenfolge lautet
+**Punkte → direkter Vergleich → gewonnene Legs → Losentscheid**. Beim Vergleich der besten Dritten
+über mehrere Gruppen hinweg gibt es keinen direkten Vergleich; dort entscheiden nach den Punkten
+gleich die gewonnenen Legs.
+
+**Bei einem einzelnen Leg ändert sich nichts:** Dort gibt es kein verlorenes Leg zu bestrafen, die
+Auswahl ist gesperrt und es gilt immer Sieg = 2, Niederlage = 0. Läuft die KO-Phase mit einer anderen
+Leg-Anzahl als die Gruppenphase, wird jede Phase nach ihrer eigenen Leg-Anzahl gewertet.
+
+Die aktive Wertung steht auf der Plan- und der Turnierseite in der Kopfzeile und auf der Anzeigeseite
+als Marke über den Gruppentabellen. In der ewigen Tabelle fließt jedes Turnier mit der Wertung ein,
+mit der es gespielt wurde.
 
 ## Spielfelder festlegen
 
@@ -236,30 +268,43 @@ Browser über das `storage`-Ereignis sofort, wenn im anderen Fenster geschrieben
 erscheinen Ergebnisse dadurch meist unmittelbar, und das Intervall dient als verlässlicher Rückfall.
 Rechts oben zeigt die Seite an, in welchem Takt sie lädt und wann sie zuletzt aktualisiert hat.
 
-## Spielplan pro Team (offline abrufbar und druckbar)
+## Spielplan pro Team und pro Spielfeld (offline abrufbar und druckbar)
 
-Die Seite **Teamplan** dreht den Spielplan von der Feld- auf die Teamsicht: oben wird ein Team
-ausgewählt, darunter stehen alle seine Spiele mit Uhrzeit, Feld, Gegner und Ergebnis. Das nächste
-Spiel steht als grüne Marke im Kopf – die häufigste Frage am Turnierabend („Wann und wo spielen
-wir?") ist damit in zwei Klicks beantwortet.
+Die Seite **Teamplan** dreht den Spielplan von der reinen Zeitliste auf die Sicht, die am
+Turnierabend gebraucht wird. Oben schaltet **Aufteilung** zwischen zwei Ansichten um:
+
+- **Nach Team** – alle Spiele eines Teams mit Uhrzeit, Feld, Gegner und Ergebnis. Die häufigste Frage
+  („Wann und wo spielen wir?") ist damit in zwei Klicks beantwortet.
+- **Nach Spielfeld** – alles, was auf einem Board bzw. einer Bahn nacheinander gespielt wird, mit
+  Uhrzeit, Spiel, Paarung und Ergebnis. Der Aushang fürs Board, damit dort jeder sieht, was als
+  Nächstes ansteht.
+
+In der Feldansicht stehen auch noch **offene KO-Paarungen** mit ihrem Platzhalter
+(z. B. *Sieger Halbfinale 1*) – am Feld zählt, wann es belegt ist, auch wenn die Namen erst durch das
+Vorspiel feststehen. Sobald ein Vorspiel entschieden ist, erscheint der Name automatisch. Freilose
+stehen nicht darin, sie werden nie gespielt.
+
+In beiden Ansichten steht das nächste noch offene Spiel als grüne Marke im Kopf des Blattes.
 
 Die Seite steht bereits nach *Spielplan generieren* zur Verfügung, also vor dem Turnierstart, und
 funktioniert vollständig offline – sie ist Teil derselben HTML-Datei.
 
-**Für die Ausgabe an die Teams:**
+**Für die Ausgabe an Teams und Spielfelder:**
 
 - *Diesen Plan drucken* druckt das angezeigte Blatt.
-- *Alle Pläne drucken* erzeugt **ein Blatt je Team**, jeweils mit Vereinslogo, Turniername und dem
-  eigenen Spielplan. Bei 24 Teams sind das 24 Seiten.
+- *Alle Pläne drucken* erzeugt **ein Blatt je Team bzw. je Spielfeld** – je nachdem, welche Ansicht
+  gerade aktiv ist –, jeweils mit Vereinslogo, Turniername und dem eigenen Spielplan. Bei 24 Teams
+  sind das 24 Seiten, bei 12 Feldern 12.
 - Im Druckdialog statt eines Druckers *Als PDF speichern* wählen – so entsteht ohne Internet eine
   Datei, die sich per USB-Stick oder Messenger verteilen lässt.
 
 Gedruckt werden nur die Blätter: Kopfzeile, Navigation und alle Schaltflächen bleiben außen vor.
 
-Ergebnisse erscheinen aus Sicht des jeweiligen Teams – wer 1:2 verloren hat, sieht auf dem eigenen
-Blatt `1:2`, der Gegner `2:1`. Solange die KO-Paarungen noch nicht feststehen, stehen sie auch auf
-keinem Teamblatt; nach jeder Runde lohnt sich also ein neuer Ausdruck. Ein Freilos wird als solches
-aufgeführt, allerdings ohne Uhrzeit und Feld.
+Auf dem **Teamblatt** erscheinen Ergebnisse aus Sicht des jeweiligen Teams – wer 1:2 verloren hat,
+sieht auf dem eigenen Blatt `1:2`, der Gegner `2:1`. Solange eine KO-Paarung noch nicht feststeht,
+steht sie auf keinem Teamblatt; nach jeder Runde lohnt sich also ein neuer Ausdruck. Ein Freilos wird
+als solches aufgeführt, allerdings ohne Uhrzeit und Feld. Auf dem **Feldblatt** steht das Ergebnis in
+der Reihenfolge der genannten Paarung.
 
 ## Spielplan und faire Pausen
 

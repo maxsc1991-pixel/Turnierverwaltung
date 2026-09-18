@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Match, Player, Standing, Tournament, TournamentConfig } from './types';
-import { applyKoSettings, bestOf, defaultConfig, hasKoPhase } from './types';
+import { applyKoSettings, bestOf, defaultConfig, hasKoPhase, requiresPoints, scoringOf, showsPoints } from './types';
 import { groupOptions, roundNames, validateConfig, hasErrors, findGroupOption } from './validation';
 import { buildGroupMatches, drawGroups, roundRobinRounds } from './groups';
-import { computeStandings } from './standings';
+import { computeStandings, matchPoints } from './standings';
+import { computeAllTimeStats } from './stats';
 import { bracketSeedOrder, buildSingleElimination, seedIntoBracket } from './bracket';
 import { buildDoubleElimination, isBracketResetNeeded } from './doubleKo';
 import { Resolver } from './resolve';
@@ -20,7 +21,8 @@ import {
   startKoPhase,
   tournamentComplete,
 } from './tournament';
-import { allTeamPlans, nextTeamMatch, teamPlan } from './teamPlan';
+import { allFieldPlans, allTeamPlans, nextOpenMatch, teamPlan } from './teamPlan';
+import { validateResult, type ResultDraft } from './result';
 
 function makePlayers(count: number): Player[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -898,7 +900,7 @@ describe('Spielplan je Team', () => {
     expect(zeiten).toEqual([...zeiten].sort());
     expect(plan.every((m) => m.field !== undefined)).toBe(true);
     expect(plan.every((m) => m.status === 'ready')).toBe(true);
-    expect(nextTeamMatch(plan)).toBe(plan[0]);
+    expect(nextOpenMatch(plan)).toBe(plan[0]);
   });
 
   it('dreht das Ergebnis auf die Sicht des jeweiligen Teams', () => {
@@ -962,5 +964,231 @@ describe('Spielplan je Team', () => {
     expect(plaene.every((p) => p.matches.length === 3)).toBe(true);
     const gesamt = plaene.reduce((sum, p) => sum + p.matches.length, 0);
     expect(gesamt).toBe(tournament.matches.filter((m) => m.phase === 'group').length * 2);
+  });
+});
+
+describe('Leg-Bonus-Wertung', () => {
+  it('vergibt 3 – 2 – 1 – 0 und skaliert über jedes Best of', () => {
+    // Best of 3: Sieg ohne Leg-Verlust, Sieg mit Leg-Verlust, Niederlage, Debakel.
+    expect(matchPoints(2, 0, 'legBonus')).toBe(3);
+    expect(matchPoints(2, 1, 'legBonus')).toBe(2);
+    expect(matchPoints(1, 2, 'legBonus')).toBe(1);
+    expect(matchPoints(0, 2, 'legBonus')).toBe(0);
+
+    // Best of 5 und Best of 7 folgen derselben Regel.
+    expect(matchPoints(3, 0, 'legBonus')).toBe(3);
+    expect(matchPoints(3, 1, 'legBonus')).toBe(2);
+    expect(matchPoints(3, 2, 'legBonus')).toBe(2);
+    expect(matchPoints(2, 3, 'legBonus')).toBe(1);
+    expect(matchPoints(0, 3, 'legBonus')).toBe(0);
+    expect(matchPoints(4, 0, 'legBonus')).toBe(3);
+    expect(matchPoints(4, 3, 'legBonus')).toBe(2);
+
+    // Unentschieden: beide haben Legs gewonnen, keiner das Spiel.
+    expect(matchPoints(1, 1, 'legBonus')).toBe(1);
+
+    // Die Standardwertung bleibt unberührt.
+    expect(matchPoints(2, 0, 'standard')).toBe(2);
+    expect(matchPoints(2, 1, 'standard')).toBe(2);
+    expect(matchPoints(1, 2, 'standard')).toBe(0);
+    expect(matchPoints(1, 1, 'standard')).toBe(1);
+  });
+
+  it('gilt bei einem einzelnen Leg nicht', () => {
+    const einLeg = config({ sport: 'cornhole', scoring: 'legBonus', cornhole: { legs: 1, targetPoints: 21 } });
+    expect(scoringOf(einLeg)).toBe('standard');
+
+    const mehrere = config({ sport: 'cornhole', scoring: 'legBonus', cornhole: { legs: 3, targetPoints: 21 } });
+    expect(scoringOf(mehrere)).toBe('legBonus');
+
+    // Und ohne Auswahl bleibt alles beim Alten – auch bei gespeicherten Turnieren
+    // ohne das Feld.
+    const alt = { ...config({ cornhole: { legs: 3, targetPoints: 21 } }) } as TournamentConfig;
+    delete (alt as Partial<TournamentConfig>).scoring;
+    expect(scoringOf(alt)).toBe('standard');
+  });
+
+  it('wertet nach Punkten und lässt dann den direkten Vergleich entscheiden', () => {
+    const ids = ['p1', 'p2', 'p3', 'p4'];
+    const partie = (a: string, b: string, legsA: number, legsB: number): Match => ({
+      id: `m-${a}-${b}`,
+      phase: 'group',
+      round: 1,
+      indexInRound: 0,
+      groupId: 'g1',
+      label: `${a} – ${b}`,
+      roundLabel: 'Runde 1',
+      a: { kind: 'player', playerId: a },
+      b: { kind: 'player', playerId: b },
+      result: { legsA, legsB },
+    });
+
+    /*
+     * Punkte (Leg-Bonus) und Leg-Differenz laufen hier bewusst auseinander:
+     *   p1  3 + 1 + 0 = 4 Punkte, Leg-Differenz -1
+     *   p2  0 + 2 + 2 = 4 Punkte, Leg-Differenz  0
+     * p1 hat also die schlechtere Leg-Differenz, aber das direkte Duell 2:0
+     * gewonnen – und muss deshalb vor p2 stehen.
+     */
+    const matches = [
+      partie('p1', 'p2', 2, 0),
+      partie('p1', 'p3', 1, 2),
+      partie('p1', 'p4', 0, 2),
+      partie('p2', 'p3', 2, 1),
+      partie('p2', 'p4', 2, 1),
+      partie('p3', 'p4', 2, 1),
+    ];
+
+    const seeds = (id: string) => Number(id.slice(1));
+    const bonus = computeStandings(ids, matches, seeds, { scoring: 'legBonus' });
+
+    expect(bonus.map((r) => [r.playerId, r.points])).toEqual([
+      ['p3', 5],
+      ['p4', 5],
+      ['p1', 4],
+      ['p2', 4],
+    ]);
+    expect(bonus.find((r) => r.playerId === 'p1')?.legDiff).toBe(-1);
+    expect(bonus.find((r) => r.playerId === 'p2')?.legDiff).toBe(0);
+    expect(bonus[2].tiebreak).toBe('Direkter Vergleich');
+    expect(bonus[0].tiebreak).toBe('Direkter Vergleich');
+
+    // Zum Vergleich die Standardwertung: dort entscheidet nach den Punkten die
+    // Leg-Differenz – und die Reihenfolge fällt anders aus.
+    const standard = computeStandings(ids, matches, seeds, {});
+    expect(standard.map((r) => r.playerId)).toEqual(['p3', 'p2', 'p4', 'p1']);
+  });
+
+  it('schlägt bis in die ewige Tabelle durch', () => {
+    const players = makePlayers(4);
+    const bonus = createTournament(
+      config({ format: 'groups', participants: 4, groupCount: 1, groupSize: 4, groupFinal: false, scoring: 'legBonus' }),
+      players,
+      3,
+    );
+    // Jedes Gruppenspiel 2:0 für die kleinere Nummer -> je 3 Punkte statt 2.
+    const gespielt: Tournament = {
+      ...bonus,
+      stage: 'finished',
+      matches: bonus.matches.map((m) => {
+        const a = Number((m.a as { playerId: string }).playerId.slice(1));
+        const b = Number((m.b as { playerId: string }).playerId.slice(1));
+        return { ...m, result: a < b ? { legsA: 2, legsB: 0 } : { legsA: 0, legsB: 2 } };
+      }),
+    };
+
+    const stats = computeAllTimeStats([gespielt]);
+    const p1 = stats.find((s) => s.name === 'Spieler 1');
+    expect(p1?.won).toBe(3);
+    expect(p1?.points).toBe(9); // 3 Siege ohne Leg-Verlust
+    const p4 = stats.find((s) => s.name === 'Spieler 4');
+    expect(p4?.won).toBe(0);
+    expect(p4?.points).toBe(0); // dreimal 0:2
+  });
+});
+
+describe('Punkteingabe über mehrere Legs', () => {
+  const draft = (over: Partial<ResultDraft> = {}): ResultDraft => ({
+    legsA: '2',
+    legsB: '1',
+    pointsA: '',
+    pointsB: '',
+    ...over,
+  });
+
+  const cornhole = (legs: number) =>
+    config({ sport: 'cornhole', cornhole: { legs, targetPoints: 21 } });
+
+  it('ist bei mehreren Legs freiwillig', () => {
+    const cfg = cornhole(3);
+    expect(requiresPoints(cfg)).toBe(false);
+    expect(showsPoints(cfg)).toBe(true);
+
+    const ohne = validateResult(cfg, draft(), { allowDraw: false });
+    expect(ohne.errors).toEqual([]);
+    expect(ohne.result).toMatchObject({ legsA: 2, legsB: 1 });
+    expect(ohne.result?.pointsA).toBeUndefined();
+
+    const mit = validateResult(cfg, draft({ pointsA: '42', pointsB: '35' }), { allowDraw: false });
+    expect(mit.errors).toEqual([]);
+    expect(mit.result).toMatchObject({ pointsA: 42, pointsB: 35 });
+  });
+
+  it('verlangt beide Punktwerte oder keinen', () => {
+    const halb = validateResult(cornhole(3), draft({ pointsA: '42' }), { allowDraw: false });
+    expect(halb.errors).toHaveLength(1);
+    expect(halb.errors[0]).toContain('beide');
+    expect(halb.result).toBeUndefined();
+  });
+
+  it('bleibt bei einem einzelnen Leg Pflicht', () => {
+    const cfg = cornhole(1);
+    expect(requiresPoints(cfg)).toBe(true);
+    expect(showsPoints(cfg)).toBe(true);
+
+    const ohne = validateResult(cfg, draft({ legsA: '1', legsB: '0' }), { allowDraw: false });
+    expect(ohne.errors).toHaveLength(1);
+    expect(ohne.result).toBeUndefined();
+
+    const mit = validateResult(cfg, draft({ legsA: '1', legsB: '0', pointsA: '21', pointsB: '17' }), {
+      allowDraw: false,
+    });
+    expect(mit.errors).toEqual([]);
+  });
+
+  it('zeigt beim Dart über mehrere Legs keine Punktefelder', () => {
+    const dart = config({ sport: 'dart' });
+    expect(bestOf(dart)).toBeGreaterThan(1);
+    expect(showsPoints(dart)).toBe(false);
+    expect(requiresPoints(dart)).toBe(false);
+  });
+});
+
+describe('Spielplan je Spielfeld', () => {
+  it('führt jedes Feld mit seinen Spielen in zeitlicher Reihenfolge auf', () => {
+    const tournament = createTournament(
+      config({ format: 'groups', participants: 16, groupCount: 4, groupSize: 4, fields: 3 }),
+      makePlayers(16),
+      9,
+    );
+    const plans = allFieldPlans(tournament);
+
+    expect(plans.map((p) => p.field)).toEqual([1, 2, 3]);
+
+    const gesamt = plans.reduce((sum, p) => sum + p.matches.length, 0);
+    expect(gesamt).toBe(tournament.matches.filter((m) => m.phase === 'group').length);
+
+    for (const plan of plans) {
+      const zeiten = plan.matches.map((m) => m.scheduledAt ?? '');
+      expect(zeiten).toEqual([...zeiten].sort());
+      // Auf einem Feld darf zu einer Zeit nur ein Spiel laufen.
+      expect(new Set(zeiten).size).toBe(zeiten.length);
+      expect(plan.matches.every((m) => m.home.kind === 'player' && m.away.kind === 'player')).toBe(
+        true,
+      );
+    }
+  });
+
+  it('zeigt noch offene KO-Paarungen mit ihrem Platzhalter', () => {
+    const tournament = createTournament(config({ format: 'single_ko', participants: 8 }), makePlayers(8), 4);
+    const plans = allFieldPlans(tournament);
+    const alle = plans.flatMap((p) => p.matches);
+
+    // Viertelfinale stehen fest, Halbfinale und Finale noch nicht.
+    expect(alle).toHaveLength(tournament.matches.filter((m) => m.field !== undefined).length);
+    const offen = alle.filter((m) => m.status === 'pending');
+    expect(offen.length).toBeGreaterThan(0);
+    expect(offen.some((m) => m.home.name.startsWith('Sieger'))).toBe(true);
+    expect(alle.every((m) => m.scheduledAt)).toBe(true);
+  });
+
+  it('lässt Freilose weg – sie werden nie gespielt', () => {
+    const tournament = createTournament(config({ format: 'single_ko', participants: 6 }), makePlayers(6), 5);
+    const resolver = new Resolver(tournament.matches);
+    const freilose = tournament.matches.filter((m) => resolver.isWalkover(m));
+    expect(freilose.length).toBeGreaterThan(0);
+
+    const ids = new Set(allFieldPlans(tournament).flatMap((p) => p.matches.map((m) => m.matchId)));
+    for (const match of freilose) expect(ids.has(match.id)).toBe(false);
   });
 });

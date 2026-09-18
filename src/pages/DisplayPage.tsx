@@ -7,7 +7,7 @@ import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
 import { formatTime } from '../engine/schedule';
 import { relevantMatches } from '../engine/doubleKo';
-import { SPORT_LABEL, hasKoPhase, type Match } from '../engine/types';
+import { SCORING_LABEL, SPORT_LABEL, hasKoPhase, scoringOf, type Match } from '../engine/types';
 import { findGroupOption, roundNames } from '../engine/validation';
 import {
   allStandings,
@@ -106,6 +106,9 @@ export function DisplayPage() {
     <section className="display__section">
       <h2 className="display__title">
         {inGroupPhase || !showKo ? 'Gruppenstand' : 'Endstand der Gruppen'}
+        {scoringOf(config) === 'legBonus' && (
+          <span className="badge">Wertung {SCORING_LABEL.legBonus}</span>
+        )}
         {groupPhaseComplete(tournament) && (
           <span className="badge badge--green">abgeschlossen</span>
         )}

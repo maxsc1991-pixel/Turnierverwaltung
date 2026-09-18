@@ -92,16 +92,23 @@ export function validateResult(
   let pointsA: number | undefined;
   let pointsB: number | undefined;
 
-  if (requiresPoints(config)) {
+  const mustHavePoints = requiresPoints(config);
+  const hasA = draft.pointsA.trim() !== '';
+  const hasB = draft.pointsB.trim() !== '';
+
+  // Über mehrere Legs sind die Punkte freiwillig – entweder beide oder keiner.
+  if (mustHavePoints || hasA || hasB) {
     pointsA = Number.parseInt(draft.pointsA, 10);
     pointsB = Number.parseInt(draft.pointsB, 10);
 
     if (!Number.isInteger(pointsA) || !Number.isInteger(pointsB) || pointsA < 0 || pointsB < 0) {
       errors.push(
-        config.sport === 'cornhole'
-          ? 'Beim Cornhole muss zusätzlich das Punkteergebnis eingetragen werden.'
-          : 'Bei einem einzelnen Leg muss zusätzlich das Punkteergebnis eingetragen werden.',
+        mustHavePoints
+          ? 'Bei einem einzelnen Leg muss zusätzlich das Punkteergebnis eingetragen werden.'
+          : 'Bitte die Punkte für beide Seiten eintragen oder beide Felder leer lassen.',
       );
+      pointsA = undefined;
+      pointsB = undefined;
     } else if (config.sport === 'cornhole') {
       const winnerPoints = Math.max(pointsA, pointsB);
       if (winnerPoints < config.cornhole.targetPoints) {
@@ -116,13 +123,6 @@ export function validateResult(
           errors.push('Punkte und Legs passen nicht zusammen – der Sieger hat weniger Punkte.');
         }
       }
-    }
-  } else {
-    const hasA = draft.pointsA.trim() !== '';
-    const hasB = draft.pointsB.trim() !== '';
-    if (hasA && hasB) {
-      pointsA = Number.parseInt(draft.pointsA, 10);
-      pointsB = Number.parseInt(draft.pointsB, 10);
     }
   }
 

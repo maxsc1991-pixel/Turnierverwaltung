@@ -23,6 +23,11 @@ export function StandingsTable({
 }: Props) {
   const nameOf = (id: string) => players.find((p) => p.id === id);
 
+  // Über mehrere Legs sind die Punkte freiwillig. Solange keine erfasst sind,
+  // sparen wir die beiden Spalten ein, statt überall 0:0 anzuzeigen.
+  const withPoints =
+    showPoints && standings.some((row) => row.pointsFor > 0 || row.pointsAgainst > 0);
+
   return (
     <div className="table-scroll">
       <table className={compact ? 'standings standings--compact' : 'standings'}>
@@ -49,7 +54,7 @@ export function StandingsTable({
             <th className="num" title="Leg-Differenz">
               Diff
             </th>
-            {showPoints && (
+            {withPoints && (
               <>
                 {!compact && (
                   <th className="num" title="Erzielte und kassierte Punkte">
@@ -94,7 +99,7 @@ export function StandingsTable({
                   {row.legDiff > 0 ? '+' : ''}
                   {row.legDiff}
                 </td>
-                {showPoints && (
+                {withPoints && (
                   <>
                     {!compact && (
                       <td className="num mono">

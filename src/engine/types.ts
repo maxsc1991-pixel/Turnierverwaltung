@@ -10,6 +10,15 @@ export type Phase = 'group' | 'ko' | 'wb' | 'lb' | 'gf' | 'gf_reset' | 'third';
 
 export type DartGame = '301' | '501' | 'cricket';
 
+/**
+ * Wertung der Gruppentabelle.
+ *
+ * `standard` … 2 Punkte je Sieg, 1 je Unentschieden.
+ * `legBonus` … 3 Punkte für einen Sieg ohne verlorenes Leg, 2 für jeden anderen
+ *              Sieg, 1 für eine Niederlage mit mindestens einem gewonnenen Leg.
+ */
+export type Scoring = 'standard' | 'legBonus';
+
 export interface Player {
   id: string;
   name: string;
@@ -109,6 +118,11 @@ export interface TournamentConfig {
   groupSize: number;
   thirdPlaceMatch: boolean;
   /**
+   * Wertung der Gruppentabelle. Über ein einzelnes Leg lässt sich kein Leg-Bonus
+   * vergeben – dort gilt immer `standard`, siehe `scoringOf`.
+   */
+  scoring: Scoring;
+  /**
    * Nur bei genau einer Gruppe relevant: Spielen die beiden Erstplatzierten
    * anschließend ein Finale, oder entscheidet allein die Tabelle?
    */
@@ -174,6 +188,7 @@ export function defaultConfig(): TournamentConfig {
     groupSize: 4,
     thirdPlaceMatch: true,
     groupFinal: true,
+    scoring: 'standard',
     dart: { game: '501', legs: { '301': 3, '501': 3, cricket: 3 } },
     cornhole: { legs: 3, targetPoints: 21 },
   };
@@ -195,11 +210,32 @@ export function drawPossible(config: TournamentConfig): boolean {
 }
 
 /**
- * Punkte müssen zusätzlich zu den Legs erfasst werden: bei Cornhole immer,
- * bei Dart nur wenn das Spiel über ein einzelnes Leg entschieden wird.
+ * Punkte müssen zusätzlich zu den Legs erfasst werden: nur wenn das Spiel über
+ * ein einzelnes Leg entschieden wird. Über mehrere Legs sind die Punkte eine
+ * Zusatzinformation und dürfen fehlen – siehe `showsPoints`.
  */
 export function requiresPoints(config: TournamentConfig): boolean {
+  return bestOf(config) === 1;
+}
+
+/**
+ * Werden Punktefelder überhaupt angeboten? Beim Cornhole immer (dort gehören die
+ * Punkte zum Spiel), beim Dart nur beim Einzel-Leg.
+ */
+export function showsPoints(config: TournamentConfig): boolean {
   return config.sport === 'cornhole' || bestOf(config) === 1;
+}
+
+/**
+ * Die tatsächlich geltende Wertung. Über ein einzelnes Leg gibt es kein
+ * verlorenes oder gewonnenes Leg zu belohnen – dort bleibt es immer bei 2
+ * Punkten je Sieg, unabhängig von der Einstellung.
+ *
+ * Fängt zugleich gespeicherte Turniere ab, die das Feld noch nicht kennen.
+ */
+export function scoringOf(config: TournamentConfig): Scoring {
+  if (bestOf(config) === 1) return 'standard';
+  return config.scoring ?? 'standard';
 }
 
 /** Folgt auf die Gruppenphase überhaupt eine KO-Runde? */
@@ -242,4 +278,9 @@ export const FORMAT_LABEL: Record<Format, string> = {
   single_ko: 'Single KO',
   double_ko: 'Doppel-KO',
   groups: 'Gruppenphase + KO',
+};
+
+export const SCORING_LABEL: Record<Scoring, string> = {
+  standard: '2 Punkte je Sieg',
+  legBonus: '3 – 2 – 1 – 0',
 };

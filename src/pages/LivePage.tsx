@@ -10,11 +10,13 @@ import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
 import { formatTime } from '../engine/schedule';
 import {
+  SCORING_LABEL,
   SPORT_LABEL,
   applyKoSettings,
   bestOf,
   drawPossible,
   hasKoPhase,
+  scoringOf,
   type Match,
 } from '../engine/types';
 import { findGroupOption } from '../engine/validation';
@@ -101,7 +103,9 @@ export function LivePage() {
           <h1>{config.name || 'Turnier läuft'}</h1>
           <p className="page-head__meta">
             {SPORT_LABEL[config.sport]} · {inGroupPhase ? 'Gruppenphase' : 'KO-Phase'} · Best of{' '}
-            {bestOf(stageConfig)} · {played.length} von {relevant.length} Spielen gespielt
+            {bestOf(stageConfig)}
+            {scoringOf(stageConfig) === 'legBonus' && ` · Wertung ${SCORING_LABEL.legBonus}`} ·{' '}
+            {played.length} von {relevant.length} Spielen gespielt
           </p>
         </div>
         <div className="btn-row">

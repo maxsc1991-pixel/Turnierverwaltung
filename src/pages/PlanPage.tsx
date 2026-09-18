@@ -5,7 +5,14 @@ import { BracketView } from '../components/BracketView';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
 import { estimatedEnd, findScheduleConflicts, formatTime, startDate } from '../engine/schedule';
-import { FORMAT_LABEL, SPORT_LABEL, bestOf, type Match } from '../engine/types';
+import {
+  FORMAT_LABEL,
+  SCORING_LABEL,
+  SPORT_LABEL,
+  bestOf,
+  scoringOf,
+  type Match,
+} from '../engine/types';
 import { findGroupOption, roundNames } from '../engine/validation';
 
 export function PlanPage() {
@@ -64,8 +71,9 @@ export function PlanPage() {
           <h1>{config.name || 'Turnierplan'}</h1>
           <p className="page-head__meta">
             {SPORT_LABEL[config.sport]} · {FORMAT_LABEL[config.format]} · {players.length} Teilnehmer ·
-            Best of {bestOf(config)} · {config.fields}{' '}
-            {config.sport === 'dart' ? 'Boards' : 'Bahnen'}
+            Best of {bestOf(config)}
+            {scoringOf(config) === 'legBonus' && ` · Wertung ${SCORING_LABEL.legBonus}`} ·{' '}
+            {config.fields} {config.sport === 'dart' ? 'Boards' : 'Bahnen'}
           </p>
         </div>
         <div className="btn-row">

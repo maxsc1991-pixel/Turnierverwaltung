@@ -9,7 +9,7 @@ import type {
   Tournament,
   TournamentConfig,
 } from './types';
-import { applyKoSettings, hasKoPhase } from './types';
+import { applyKoSettings, hasKoPhase, scoringOf } from './types';
 import { buildSingleElimination, buildThirdPlaceMatch, seedIntoBracket } from './bracket';
 import { buildDoubleElimination, isBracketResetNeeded } from './doubleKo';
 import { buildGroupMatches, drawGroups } from './groups';
@@ -17,7 +17,7 @@ import { qualifyFromGroups } from './qualification';
 import { Resolver } from './resolve';
 import { createRng, newSeed, shuffle } from './rng';
 import { estimatedEnd, groupFieldMap, scheduleMatches, startDate } from './schedule';
-import { computeStandings } from './standings';
+import { computeStandings, type StandingsOptions } from './standings';
 import { findGroupOption } from './validation';
 
 export function seedOf(players: readonly Player[]): (playerId: string) => number {
@@ -76,9 +76,15 @@ export function redraw(tournament: Tournament, seed = newSeed()): Tournament {
   return { ...tournament, seed, groups, matches };
 }
 
-/** Beim Cornhole zaehlen die erzielten Punkte in der Gruppenwertung mit. */
-export function standingsOptions(config: TournamentConfig) {
-  return { usePoints: config.sport === 'cornhole' };
+/**
+ * Wie wird gewertet? Beim Cornhole zählen in der Standardwertung die erzielten
+ * Punkte mit. In der Leg-Bonus-Wertung entscheidet nach den Turnierpunkten der
+ * direkte Vergleich – Leg- und Punktdifferenz stecken dort bereits in den
+ * Punkten und würden sonst doppelt zählen.
+ */
+export function standingsOptions(config: TournamentConfig): StandingsOptions {
+  const scoring = scoringOf(config);
+  return { usePoints: config.sport === 'cornhole' && scoring === 'standard', scoring };
 }
 
 export function standingsFor(tournament: Tournament, groupId: string): Standing[] {

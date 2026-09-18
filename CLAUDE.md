@@ -88,9 +88,29 @@ anderswo nachbaut, riskiert eine Anzeige, die der tatsächlichen Qualifikation w
 Setzlistenposition**. Beim Cornhole schiebt sich die **Punktdifferenz vor den direkten Vergleich**,
 weil die Leg-Differenz dort bei Best of 1 nur ±1 beträgt und zu viele Gleichstände erzeugt.
 
+Daneben gibt es die wählbare **Leg-Bonus-Wertung** (`Scoring = 'legBonus'`): 3 Punkte für einen Sieg
+ohne verlorenes Leg, 2 für jeden anderen Sieg, 1 für eine Niederlage mit mindestens einem gewonnenen
+Leg. `matchPoints()` hängt dabei nur davon ab, **ob** der Verlierer ein Leg geholt hat – dadurch gilt
+dieselbe Funktion für jedes Best of, ohne Sonderfälle je Leg-Anzahl.
+
+In dieser Wertung steckt die Leg-Ausbeute schon in den Punkten. Leg- und Punktdifferenz **entfallen
+deshalb als Kriterium** (`primaryKeys` liefert nur `[points]`), danach entscheidet der direkte
+Vergleich. Wer sie dort wieder einbaut, wertet dasselbe zweimal.
+
+**Über ein einzelnes Leg gilt immer die Standardwertung** – abgefragt über `scoringOf(config)`, nie
+über `config.scoring` direkt. Dieselbe Funktion fängt gespeicherte Turniere ab, die das Feld noch
+nicht kennen.
+
 Umgeschaltet wird das nicht über die Sportart im Sortierer, sondern über
-`standingsOptions(config)` → `{ usePoints }`. Wer eine neue Auswertung baut, muss diese Optionen
-mitgeben, sonst wertet sie stillschweigend ohne Punkte.
+`standingsOptions(config)` → `{ usePoints, scoring }`. Wer eine neue Auswertung baut, muss diese
+Optionen mitgeben, sonst wertet sie stillschweigend nach der Standardwertung ohne Punkte. Das gilt
+auch für die ewige Tabelle: `stats.ts` wertet jedes Turnier mit **seiner** Wertung, und die KO-Phase
+kann dabei eine andere Leg-Anzahl und damit eine andere geltende Wertung haben als die Gruppenphase.
+
+Punkte sind nur bei einem einzelnen Leg Pflicht (`requiresPoints`); ob Felder überhaupt angeboten
+werden, sagt `showsPoints`. Über mehrere Legs dürfen sie fehlen – Auswertungen müssen also mit
+`pointsA === undefined` umgehen, und die Tabellen blenden die Punktespalten aus, solange nichts
+erfasst ist.
 
 Der direkte Vergleich ist eine Mini-Tabelle nur aus den Spielen der Gleichstehenden untereinander –
 er entscheidet also erst, wenn die Kriterien davor gleich sind.
@@ -121,7 +141,7 @@ nichts über die Runde. Freilos-Spiele zählen mit: wer ein Freilos hatte, hat d
 Ohne KO-Phase liefert `koPlacements()` alle Teilnehmer nach der Gruppentabelle. Die Darstellung
 teilen sich Turnieransicht, Anzeigeseite und Archiv über `components/PlacementTable.tsx`.
 
-### Spielplan je Team
+### Spielplan je Team und je Spielfeld
 
 `engine/teamPlan.ts` dreht den Spielplan von der Feld- auf die Teamsicht: `teamPlan()` liefert alle
 Spiele eines Teams samt Gegner, Zeit, Feld und **gespiegeltem Ergebnis** – wer auf Seite B stand,
@@ -131,6 +151,10 @@ Aufgeführt wird nur, was schon feststeht. Ein KO-Spiel der nächsten Runde hat 
 seinen Slots und gehört damit keinem Team; erst mit dem Ergebnis des Vorspiels taucht es im Plan auf.
 Freilose bleiben mit dem Vermerk „Freilos" stehen, aber ohne Zeit und Feld – sonst sucht jemand ein
 Spiel, das nie stattfindet.
+
+`allFieldPlans()` dreht denselben Plan auf die Feldsicht. Dort bleiben offene KO-Paarungen mit ihrem
+Platzhalter stehen – am Feld zählt die Belegung, nicht der Name – während Freilose entfallen, weil
+sie nie gespielt werden.
 
 Gedruckt wird über `@media print` in `styles/components.css`: `.no-print` blendet die Bedienung aus,
 `.teamplan--all` schaltet vom einzelnen Blatt auf alle Blätter um, `break-after: page` je

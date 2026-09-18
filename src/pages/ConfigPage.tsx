@@ -5,9 +5,13 @@ import { PlayerManager } from '../components/PlayerManager';
 import {
   DART_GAME_LABEL,
   FORMAT_LABEL,
+  SCORING_LABEL,
   SPORT_LABEL,
+  bestOf,
+  scoringOf,
   type DartGame,
   type Format,
+  type Scoring,
   type Sport,
 } from '../engine/types';
 import {
@@ -20,6 +24,12 @@ import {
   roundNames,
   validateConfig,
 } from '../engine/validation';
+
+const SCORING_HINTS: Record<Scoring, string> = {
+  standard: 'Sieg 2 Punkte, Unentschieden 1, Niederlage 0. Danach entscheidet die Leg-Differenz.',
+  legBonus:
+    'Sieg ohne verlorenes Leg 3 Punkte, jeder andere Sieg 2, eine Niederlage mit mindestens einem gewonnenen Leg 1. Die Leg-Differenz entfällt als Kriterium – bei Gleichstand entscheidet der direkte Vergleich.',
+};
 
 const FORMAT_HINTS: Record<Format, string> = {
   single_ko: 'Wer verliert, ist raus. Krumme Teilnehmerzahlen werden mit Freilosen aufgefüllt.',
@@ -371,6 +381,28 @@ export function ConfigPage() {
               </div>
             </div>
           )}
+
+          <div className="field">
+            <span className="field-label">Wertung der Gruppentabelle</span>
+            <div className="segmented">
+              {(Object.keys(SCORING_LABEL) as Scoring[]).map((scoring) => (
+                <button
+                  key={scoring}
+                  type="button"
+                  className={scoringOf(config) === scoring ? 'is-active' : ''}
+                  disabled={bestOf(config) === 1}
+                  onClick={() => setConfig({ scoring })}
+                >
+                  {SCORING_LABEL[scoring]}
+                </button>
+              ))}
+            </div>
+            <span className="field__hint">
+              {bestOf(config) === 1
+                ? 'Über ein einzelnes Leg gibt es keinen Leg-Bonus – hier gilt immer: Sieg 2 Punkte, Niederlage 0.'
+                : SCORING_HINTS[scoringOf(config)]}
+            </span>
+          </div>
         </div>
       </div>
 
