@@ -156,10 +156,12 @@ Spiel, das nie stattfindet.
 Platzhalter stehen – am Feld zählt die Belegung, nicht der Name – während Freilose entfallen, weil
 sie nie gespielt werden.
 
-Gedruckt wird über `@media print` in `styles/components.css`: `.no-print` blendet die Bedienung aus,
-`.teamplan--all` schaltet vom einzelnen Blatt auf alle Blätter um, `break-after: page` je
-`.team-sheet` ergibt genau ein Blatt pro Team. Der Umschalter ist Zustand der Seite und wird nach
-`window.print()` wieder zurückgenommen – die Blätter dürfen auf dem Bildschirm nie erscheinen.
+Beide Ansichten teilen sich Blattaufbau und Druckweg; welche gedruckt wird, entscheidet der
+Umschalter der Seite. Gedruckt wird über `@media print` in `styles/components.css`: `.no-print`
+blendet die Bedienung aus, `.teamplan--all` schaltet vom einzelnen Blatt auf alle Blätter um,
+`break-after: page` je `.team-sheet` ergibt genau ein Blatt pro Team bzw. pro Spielfeld. Das
+Umschalten ist Zustand der Seite und wird nach `window.print()` wieder zurückgenommen – die Blätter
+dürfen auf dem Bildschirm nie erscheinen.
 
 ### Zustand und Persistenz
 
@@ -170,10 +172,10 @@ Persistiert werden `config`, `players`, `active`, `archive` und `displayRefreshS
 Datenmodell inkompatibel geändert, den Schlüssel hochzählen oder eine Migration ergänzen** – sonst
 laufen gespeicherte Turniere der Anwender in undefiniertes Verhalten.
 
-Auf der Anzeigeseite tauschen Turnierbaum und Gruppentabellen mit der Phase den Platz: die Abschnitte
-liegen als Konstanten (`groupsSection`, `koSection`, `upcomingSection`) vor dem `return`, das sie nur
-noch anordnet. Der Baum steht dabei immer in voller Breite – in einer Spalte des Zweispalters müsste
-man auf dem Beamer scrollen, um das Finale zu sehen.
+Ein *zusätzliches* Konfigurationsfeld braucht dagegen keine Migration, wenn es seinen Vorgabewert
+selbst mitbringt: gespeicherte Turniere kennen das Feld nicht, es kommt als `undefined` zurück. Die
+Lesefunktion fängt das ab (`config.scoring ?? 'standard'` in `scoringOf`), nicht jede Auswertung
+einzeln.
 
 Die Anzeigeseite (`#/anzeige`) läuft typischerweise in einem zweiten Fenster mit eigenem
 Speicherzustand. Sie holt sich Änderungen über `persist.rehydrate()` – zyklisch im eingestellten
@@ -187,12 +189,17 @@ Takt und zusätzlich sofort über das `storage`-Ereignis.
 #/ko-start  KoSetupPage   nur Gruppenmodus: Einstellungen der KO-Phase + Setzung
 #/live      LivePage      Gruppen/Bracket links, laufende Spiele rechts, Ergebniseingabe
 #/anzeige   DisplayPage   Zuschaueransicht, ohne Bedienelemente, selbstaktualisierend
-#/teamplan  TeamPlanPage  Spielplan eines einzelnen Teams, druckbar – ein Blatt je Team
+#/teamplan  TeamPlanPage  Spielplan je Team oder je Spielfeld, druckbar – ein Blatt je Auswahl
 #/historie  HistoryPage   ewige Tabelle, Archiv, JSON-Export/-Import
 ```
 
 `Tournament.stage` steuert den Fortschritt: `plan → group → ko → finished`. Ohne Gruppenphase geht es
 direkt nach `ko`.
+
+Auf der Anzeigeseite tauschen Turnierbaum und Gruppentabellen mit der Phase den Platz: die Abschnitte
+liegen als Konstanten (`groupsSection`, `koSection`, `upcomingSection`) vor dem `return`, das sie nur
+noch anordnet. Der Baum steht dabei immer in voller Breite – in einer Spalte des Zweispalters müsste
+man auf dem Beamer scrollen, um das Finale zu sehen.
 
 ## Build: eine einzige HTML-Datei
 
@@ -224,9 +231,11 @@ mit 2 bis 24 Teilnehmern vollständig durch). Sie sind der erste Anlaufpunkt fü
 nach Setzliste und liefert zufällig oft genau die erwartete Reihenfolge – ein solcher Test besteht
 auch dann, wenn gar keine Spiele erzeugt wurden. Immer zusätzlich Spielanzahl und `played` prüfen.
 
-Oberflächenänderungen mit Playwright gegen den Entwicklungsserver fahren; Chromium liegt unter
-`/opt/pw-browsers/chromium-1194/chrome-linux/chrome` (mit `--no-sandbox`). Zwei wiederkehrende
-Stolpersteine dabei:
+Oberflächenänderungen mit Playwright gegen den Entwicklungsserver fahren. **Playwright ist bewusst
+keine Abhängigkeit des Projekts** – die Skripte laufen außerhalb des Repos (`npm install playwright`
+im Arbeitsverzeichnis genügt). Chromium ist vorinstalliert unter
+`/opt/pw-browsers/chromium-1194/chrome-linux/chrome` und braucht `--no-sandbox`; `playwright install`
+ist nicht nötig. Zwei wiederkehrende Stolpersteine dabei:
 
 - Nach `waitForURL` ist React noch nicht fertig. Vor dem Zählen von Elementen auf einen konkreten
   Selektor warten, sonst entstehen Phantomfehler.
