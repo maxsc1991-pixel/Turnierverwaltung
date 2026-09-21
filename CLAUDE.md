@@ -205,7 +205,14 @@ laufen gespeicherte Turniere der Anwender in undefiniertes Verhalten.
 Ein *zusätzliches* Konfigurationsfeld braucht dagegen keine Migration, wenn es seinen Vorgabewert
 selbst mitbringt: gespeicherte Turniere kennen das Feld nicht, es kommt als `undefined` zurück. Die
 Lesefunktion fängt das ab (`config.scoring ?? 'standard'` in `scoringOf`), nicht jede Auswertung
-einzeln.
+einzeln. Ebenso `Player.present` über `isPresent()`.
+
+`Player.present` ist der Anwesenheitshaken der Anmeldung und **absichtlich folgenlos**: einziger
+Leser ist `PlayerManager`, die Engine kennt ihn nicht. Wer nicht erscheint, wird von Hand aus der
+Liste entfernt – das ist die Entscheidung des Turnierleiters, nicht die des Programms. Ihn an
+Auslosung, Spielplan oder Wertung anzuschließen wäre also keine Verbesserung, sondern eine
+Verhaltensänderung; ein Test in `engine.test.ts` hält fest, dass dieselbe Auslosung mit und ohne
+Haken Spiel für Spiel identisch bleibt.
 
 Die Anzeigeseite (`#/anzeige`) läuft typischerweise in einem zweiten Fenster mit eigenem
 Speicherzustand. Sie holt sich Änderungen über `persist.rehydrate()` – zyklisch im eingestellten

@@ -42,7 +42,9 @@ interface AppState {
 
   addPlayer: (name: string, club?: string) => void;
   addPlayersFromText: (text: string) => number;
-  updatePlayer: (id: string, patch: Partial<Pick<Player, 'name' | 'club'>>) => void;
+  updatePlayer: (id: string, patch: Partial<Pick<Player, 'name' | 'club' | 'present'>>) => void;
+  /** Anwesenheitshaken für alle auf einmal setzen – nur Verwaltung, ohne Wirkung. */
+  setAllPresent: (present: boolean) => void;
   removePlayer: (id: string) => void;
   movePlayer: (id: string, direction: -1 | 1) => void;
   clearPlayers: () => void;
@@ -116,6 +118,9 @@ export const useTournamentStore = create<AppState>()(
               : p,
           ),
         })),
+
+      setAllPresent: (present) =>
+        set((s) => ({ players: s.players.map((p) => ({ ...p, present })) })),
 
       removePlayer: (id) => set((s) => ({ players: reseed(s.players.filter((p) => p.id !== id)) })),
 

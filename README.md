@@ -212,6 +212,18 @@ betroffenen Feldern und Zeiten. Über *Neu auslosen* wird der Spielplan wieder s
 
 Während des Turniers zeigt jede Gruppe ihr festes Feld als rote Markierung neben dem Gruppennamen.
 
+## Anmeldung: Spalte „Anwesend"
+
+In der Spielerliste der Konfigurationsseite hat jede Zeile einen Haken **Anwesend**. Er ist eine
+reine Notiz für die Anmeldung, wenn die Teams nach und nach eintrudeln – **er verändert nichts**:
+weder Auslosung noch Spielplan noch Wertung sehen ihn. Ein Team, das zum Turnierstart fehlt, wird
+wie bisher über ✕ aus der Liste entfernt; die Setzliste nummeriert sich danach von selbst neu.
+
+Neu erfasste Spieler gelten als anwesend. Über **Alle abmelden** lässt sich die ganze Liste auf
+einen Schlag zurücksetzen und dann Team für Team abhaken – umgekehrt setzt **Alle anwesend** alle
+Haken wieder. Im Kartenkopf steht, wie viele noch fehlen, und abgemeldete Zeilen sind
+durchgestrichen.
+
 ## Ablauf einer Gruppenphase mit KO-Runde
 
 Ist die Gruppenphase abgeschlossen, führt der Weg über die Seite **KO-Phase vorbereiten**. Dort

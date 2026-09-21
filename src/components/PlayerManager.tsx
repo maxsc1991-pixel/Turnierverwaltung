@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useTournamentStore } from '../store/useTournamentStore';
 import { findDuplicateNames, parsePlayerList } from '../engine/players';
+import { isPresent } from '../engine/types';
 
 export function PlayerManager() {
   const players = useTournamentStore((s) => s.players);
@@ -10,6 +11,7 @@ export function PlayerManager() {
   const removePlayer = useTournamentStore((s) => s.removePlayer);
   const movePlayer = useTournamentStore((s) => s.movePlayer);
   const clearPlayers = useTournamentStore((s) => s.clearPlayers);
+  const setAllPresent = useTournamentStore((s) => s.setAllPresent);
 
   const [name, setName] = useState('');
   const [club, setClub] = useState('');
@@ -18,6 +20,8 @@ export function PlayerManager() {
 
   const duplicates = findDuplicateNames(players);
   const bulkPreview = parsePlayerList(bulk);
+  const presentCount = players.filter(isPresent).length;
+  const missing = players.length - presentCount;
 
   const submitSingle = (event: FormEvent) => {
     event.preventDefault();
@@ -40,17 +44,30 @@ export function PlayerManager() {
         <div className="card__title">
           Spieler
           <span className="badge">{players.length}</span>
+          {missing > 0 && (
+            <span className="badge badge--red">{missing} noch nicht da</span>
+          )}
         </div>
         {players.length > 0 && (
-          <button
-            type="button"
-            className="btn btn--sm"
-            onClick={() => {
-              if (confirm('Alle erfassten Spieler entfernen?')) clearPlayers();
-            }}
-          >
-            Alle entfernen
-          </button>
+          <div className="btn-row">
+            <button
+              type="button"
+              className="btn btn--sm"
+              title="Anwesenheit für alle auf einmal setzen"
+              onClick={() => setAllPresent(presentCount !== players.length)}
+            >
+              {presentCount === players.length ? 'Alle abmelden' : 'Alle anwesend'}
+            </button>
+            <button
+              type="button"
+              className="btn btn--sm"
+              onClick={() => {
+                if (confirm('Alle erfassten Spieler entfernen?')) clearPlayers();
+              }}
+            >
+              Alle entfernen
+            </button>
+          </div>
         )}
       </div>
 
@@ -118,8 +135,18 @@ export function PlayerManager() {
           <div className="empty">Noch keine Spieler erfasst.</div>
         ) : (
           <div className="player-list">
+            <div className="player-row player-row--head" aria-hidden="true">
+              <span>#</span>
+              <span>Name</span>
+              <span>Verein</span>
+              <span className="player-row__present">Anwesend</span>
+              <span />
+            </div>
             {players.map((player, index) => (
-              <div className="player-row" key={player.id}>
+              <div
+                className={`player-row${isPresent(player) ? '' : ' player-row--absent'}`}
+                key={player.id}
+              >
                 <span className="player-row__seed">{player.seed}</span>
                 <input
                   type="text"
@@ -134,6 +161,15 @@ export function PlayerManager() {
                   aria-label={`Verein von ${player.name}`}
                   onChange={(e) => updatePlayer(player.id, { club: e.target.value })}
                 />
+                <span className="player-row__present">
+                  <input
+                    type="checkbox"
+                    checked={isPresent(player)}
+                    aria-label={`${player.name} anwesend`}
+                    title={isPresent(player) ? 'Anwesend' : 'Noch nicht da'}
+                    onChange={(e) => updatePlayer(player.id, { present: e.target.checked })}
+                  />
+                </span>
                 <span className="row" style={{ gap: 2, flexWrap: 'nowrap' }}>
                   <button
                     type="button"
@@ -170,6 +206,11 @@ export function PlayerManager() {
         <p className="faint">
           Die Reihenfolge bestimmt die Setzliste: Spieler 1 ist topgesetzt und erhält bei krummen
           Teilnehmerzahlen das erste Freilos.
+        </p>
+        <p className="faint">
+          Der Haken <strong>Anwesend</strong> ist nur eine Notiz für die Anmeldung – er ändert weder
+          Auslosung noch Spielplan. Wer bis zum Turnierstart fehlt, wird über ✕ aus der Liste
+          entfernt.
         </p>
       </div>
     </div>

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { Match, Player, Standing, Tournament, TournamentConfig } from './types';
-import { applyKoSettings, bestOf, defaultConfig, hasKoPhase, requiresPoints, scoringOf, showsPoints } from './types';
+import {
+  applyKoSettings,
+  bestOf,
+  defaultConfig,
+  hasKoPhase,
+  isPresent,
+  requiresPoints,
+  scoringOf,
+  showsPoints,
+} from './types';
 import { groupOptions, roundNames, validateConfig, hasErrors, findGroupOption } from './validation';
 import { buildGroupMatches, drawGroups, roundRobinRounds } from './groups';
 import { computeStandings, matchPoints } from './standings';
@@ -1448,5 +1457,38 @@ describe('Hin- und Rückrunde', () => {
     expect(p2.points).toBe(2);
     expect(p1.legsFor).toBe(3);
     expect(p2.legsFor).toBe(2);
+  });
+});
+
+describe('Anwesenheitshaken der Anmeldung', () => {
+  const anwesend = (present?: boolean): Player => ({ id: 'p1', name: 'Team 1', seed: 1, present });
+
+  it('gilt ohne Angabe als anwesend', () => {
+    // Gespeicherte Turniere kennen das Feld nicht – sie dürfen nicht plötzlich
+    // als unvollständig angemeldet dastehen.
+    expect(isPresent(anwesend(undefined))).toBe(true);
+    expect(isPresent(anwesend(true))).toBe(true);
+    expect(isPresent(anwesend(false))).toBe(false);
+  });
+
+  it('ändert weder Auslosung noch Spielplan noch Wertung', () => {
+    // Der Haken ist reine Verwaltung. Dieselbe Auslosung mit und ohne Haken
+    // muss Spiel für Spiel dasselbe ergeben.
+    const config = { ...defaultConfig(), format: 'groups' as const, participants: 8, groupCount: 2, groupSize: 4 };
+    const plain = makePlayers(8);
+    const flagged = plain.map((p, i) => ({ ...p, present: i % 2 === 0 }));
+
+    const a = createTournament(config, plain, 4711);
+    const b = createTournament(config, flagged, 4711);
+
+    expect(b.groups.map((g) => g.playerIds)).toEqual(a.groups.map((g) => g.playerIds));
+    expect(b.matches).toHaveLength(a.matches.length);
+    expect(b.matches.map((m) => `${m.id}|${m.field}|${m.scheduledAt}`)).toEqual(
+      a.matches.map((m) => `${m.id}|${m.field}|${m.scheduledAt}`),
+    );
+    // Auch ein durchgehend abgemeldetes Feld bleibt vollständig im Plan.
+    const keiner = createTournament(config, plain.map((p) => ({ ...p, present: false })), 4711);
+    expect(keiner.matches).toHaveLength(a.matches.length);
+    expect(keiner.players).toHaveLength(8);
   });
 });

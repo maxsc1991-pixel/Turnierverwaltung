@@ -10,7 +10,7 @@
 
 .player-row {
   display: grid;
-  grid-template-columns: 34px 1fr 1fr auto;
+  grid-template-columns: 34px 1fr 1fr 72px auto;
   gap: var(--space-2);
   align-items: center;
   padding: var(--space-1);
@@ -19,6 +19,37 @@
 
 .player-row:hover {
   background: var(--c-surface-alt);
+}
+
+/* Spaltenüberschriften – nur Beschriftung, keine Eingabe. */
+.player-row--head {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-ink-faint);
+  padding-bottom: 0;
+}
+
+.player-row--head:hover {
+  background: none;
+}
+
+/* Wer noch nicht da ist, tritt zurück – ohne dass sich etwas am Turnier ändert. */
+.player-row--absent input[type='text'] {
+  color: var(--c-ink-faint);
+  text-decoration: line-through;
+}
+
+.player-row__present {
+  text-align: center;
+}
+
+.player-row__present input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--c-green);
+  cursor: pointer;
 }
 
 .player-row__seed {
@@ -36,10 +67,15 @@
 
 @media (max-width: 620px) {
   .player-row {
-    grid-template-columns: 28px 1fr auto;
+    grid-template-columns: 28px 1fr 44px auto;
   }
-  .player-row input:nth-of-type(2) {
+  /* Der Verein rutscht in eine eigene Zeile, Name und Haken bleiben oben. */
+  .player-row input[type='text']:nth-of-type(2) {
     grid-column: 2 / -1;
+    grid-row: 2;
+  }
+  .player-row--head {
+    display: none;
   }
 }
 

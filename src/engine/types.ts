@@ -25,6 +25,17 @@ export interface Player {
   club?: string;
   /** Setzlistenposition, 1-basiert. Bestimmt Freilose und die Auslosung. */
   seed: number;
+  /**
+   * Anwesenheitshaken der Anmeldung – **reine Verwaltungsangabe**. Er wird
+   * nirgends ausgewertet: Auslosung, Spielplan und Wertung sehen ihn nicht.
+   * Wer nicht erscheint, wird vor dem Start von Hand aus der Liste entfernt.
+   */
+  present?: boolean;
+}
+
+/** Gespeicherte Spieler kennen das Feld nicht – ohne Angabe gilt „anwesend". */
+export function isPresent(player: Player): boolean {
+  return player.present ?? true;
 }
 
 /**
