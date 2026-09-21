@@ -40,7 +40,11 @@ export function MatchCard({
     <div className={`match-card${live ? ' match-card--live' : ''}${done ? ' match-card--done' : ''}`}>
       <div className="match-card__head">
         <span>{match.field ? `Feld ${match.field}` : match.label}</span>
-        <span>{match.field ? formatTime(match.scheduledAt) : ''}</span>
+        {match.noShow ? (
+          <span className="badge badge--red">kampflos</span>
+        ) : (
+          <span>{match.field ? formatTime(match.scheduledAt) : ''}</span>
+        )}
       </div>
 
       <div className="match-card__body">
@@ -52,7 +56,11 @@ export function MatchCard({
               {a.name}
               <OriginTag origins={origins} playerId={a.playerId} />
             </strong>
-            {a.club && <span className="match-side__club">{a.club}</span>}
+            {match.noShow === 'a' ? (
+              <span className="match-side__club">nicht angetreten</span>
+            ) : (
+              a.club && <span className="match-side__club">{a.club}</span>
+            )}
           </span>
           <span className="match-side__legs">{done ? match.result?.legsA : '–'}</span>
         </div>
@@ -65,7 +73,11 @@ export function MatchCard({
               {b.name}
               <OriginTag origins={origins} playerId={b.playerId} />
             </strong>
-            {b.club && <span className="match-side__club">{b.club}</span>}
+            {match.noShow === 'b' ? (
+              <span className="match-side__club">nicht angetreten</span>
+            ) : (
+              b.club && <span className="match-side__club">{b.club}</span>
+            )}
           </span>
           <span className="match-side__legs">{done ? match.result?.legsB : '–'}</span>
         </div>

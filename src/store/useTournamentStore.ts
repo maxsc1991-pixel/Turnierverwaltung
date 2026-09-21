@@ -12,6 +12,7 @@ import {
   startKoPhase,
 } from '../engine/tournament';
 import { newSeed } from '../engine/rng';
+import { reinstatePlayer, settleNoShows, withdrawPlayer } from '../engine/withdraw';
 
 export const STORAGE_KEY = 'tv.state.v1';
 
@@ -59,6 +60,10 @@ interface AppState {
 
   setResult: (matchId: string, result: MatchResult) => void;
   clearResult: (matchId: string) => void;
+  /** Team als nicht angetreten markieren – offene Spiele werden kampflos gewertet. */
+  withdrawPlayer: (playerId: string) => void;
+  /** Markierung zurücknehmen; kampflos vergebene Ergebnisse verschwinden wieder. */
+  reinstatePlayer: (playerId: string) => void;
   startKo: (ko?: KoSettings) => void;
   finish: () => void;
 
@@ -229,11 +234,23 @@ export const useTournamentStore = create<AppState>()(
 
       setResult: (matchId, result) =>
         set((s) =>
-          updateActive(s, (t) => ({
-            ...t,
-            matches: t.matches.map((m) => (m.id === matchId ? { ...m, result } : m)),
-          })),
+          updateActive(s, (t) =>
+            // Mit dem Ergebnis kann ein Folgespiel spielbereit werden, in dem
+            // ein zurückgezogenes Team steht – deshalb jedes Mal nachziehen.
+            settleNoShows({
+              ...t,
+              matches: t.matches.map((m) =>
+                m.id === matchId ? { ...m, result, noShow: undefined } : m,
+              ),
+            }),
+          ),
         ),
+
+      withdrawPlayer: (playerId) =>
+        set((s) => updateActive(s, (t) => withdrawPlayer(t, playerId))),
+
+      reinstatePlayer: (playerId) =>
+        set((s) => updateActive(s, (t) => reinstatePlayer(t, playerId))),
 
       /**
        * Ergebnis zurücknehmen. Alles, was auf diesem Spiel aufbaut, verliert
@@ -265,7 +282,7 @@ export const useTournamentStore = create<AppState>()(
           }),
         ),
 
-      startKo: (ko) => set((s) => updateActive(s, (t) => startKoPhase(t, ko))),
+      startKo: (ko) => set((s) => updateActive(s, (t) => settleNoShows(startKoPhase(t, ko)))),
 
       finish: () =>
         set((s) => {

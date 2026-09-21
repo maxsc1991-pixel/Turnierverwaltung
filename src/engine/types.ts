@@ -81,6 +81,12 @@ export interface Match {
   /** ISO-Zeitstempel der geplanten Startzeit. */
   scheduledAt?: string;
   result?: MatchResult;
+  /**
+   * Seite, die nicht angetreten ist. Das Ergebnis steht trotzdem im Spiel – es
+   * ist ein kampfloser Sieg über die volle Leg-Zahl. Das Feld dient nur der
+   * Kennzeichnung; gerechnet wird überall mit dem normalen Ergebnis.
+   */
+  noShow?: 'a' | 'b';
 }
 
 export interface Group {
@@ -145,6 +151,12 @@ export interface TournamentConfig {
    */
   returnLeg: boolean;
   /**
+   * Erlaubt, ein Team während des Turniers als nicht angetreten zu markieren.
+   * Seine offenen Spiele werden dann kampflos gewertet – abgefragt über
+   * `allowsNoShow`, damit gespeicherte Turniere ohne das Feld gültig bleiben.
+   */
+  noShowWalkover?: boolean;
+  /**
    * Nur bei genau einer Gruppe relevant: Spielen die beiden Erstplatzierten
    * anschließend ein Finale, oder entscheidet allein die Tabelle?
    */
@@ -174,6 +186,16 @@ export interface Tournament {
   finalRanking?: FinalRank[];
   /** Einstellungen der KO-Phase, sobald sie gestartet wurde. */
   ko?: KoSettings;
+  /**
+   * Teams, die nicht angetreten oder vorzeitig abgereist sind. Eine einzige
+   * Quelle der Wahrheit: daraus leiten sich die kampflosen Ergebnisse ab, auch
+   * für Spiele, die erst später entstehen (KO-Runde).
+   */
+  withdrawn?: string[];
+}
+
+export function isWithdrawn(tournament: Tournament, playerId: string): boolean {
+  return (tournament.withdrawn ?? []).includes(playerId);
 }
 
 export interface Standing {
@@ -210,11 +232,20 @@ export function defaultConfig(): TournamentConfig {
     groupSize: 4,
     thirdPlaceMatch: true,
     returnLeg: false,
+    noShowWalkover: true,
     groupFinal: true,
     scoring: 'standard',
     dart: { game: '501', legs: { '301': 3, '501': 3, cricket: 3 } },
     cornhole: { legs: 3, targetPoints: 21 },
   };
+}
+
+/**
+ * Gespeicherte Turniere kennen das Feld nicht – dort war das Markieren nicht
+ * möglich, also gilt die Vorgabe der heutigen Konfiguration: erlaubt.
+ */
+export function allowsNoShow(config: TournamentConfig): boolean {
+  return config.noShowWalkover ?? true;
 }
 
 /** Best of N für die aktuell konfigurierte Sportart. */

@@ -12,12 +12,15 @@ import { formatTime } from '../engine/schedule';
 import {
   SCORING_LABEL,
   SPORT_LABEL,
+  allowsNoShow,
   applyKoSettings,
   bestOf,
   drawPossible,
   hasKoPhase,
   scoringOf,
   type Match,
+  type Player,
+  type Tournament,
 } from '../engine/types';
 import { findGroupOption } from '../engine/validation';
 import { relevantMatches } from '../engine/doubleKo';
@@ -35,6 +38,8 @@ export function LivePage() {
   const setResult = useTournamentStore((s) => s.setResult);
   const clearResult = useTournamentStore((s) => s.clearResult);
   const finish = useTournamentStore((s) => s.finish);
+  const withdrawPlayer = useTournamentStore((s) => s.withdrawPlayer);
+  const reinstatePlayer = useTournamentStore((s) => s.reinstatePlayer);
 
   const [editing, setEditing] = useState<string | null>(null);
   const [pane, setPane] = useState<'left' | 'right'>('right');
@@ -153,6 +158,14 @@ export function LivePage() {
 
       {tournament.stage === 'finished' && <FinalRanking tournament={tournament} />}
 
+      {allowsNoShow(config) && tournament.stage !== 'finished' && (
+        <NoShowCard
+          tournament={tournament}
+          onWithdraw={withdrawPlayer}
+          onReinstate={reinstatePlayer}
+        />
+      )}
+
       <div className="live-tabs">
         <button
           type="button"
@@ -193,6 +206,7 @@ export function LivePage() {
                       qualifyingPlaces={needsKo ? 2 : 0}
                       thirdPlaceCandidate={(option?.bestThirds ?? 0) > 0}
                       showPoints={config.sport === 'cornhole'}
+                      withdrawn={tournament.withdrawn}
                     />
                   </div>
                 </div>
@@ -419,6 +433,105 @@ function FinalRanking({
       <div className="card__body card__body--flush">
         <PlacementTable tournament={tournament} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Nicht angetretene Teams. Bewusst zurückhaltend platziert und zugeklappt: das
+ * ist ein Eingriff, kein Alltagshandgriff – und er lässt sich zurücknehmen.
+ */
+function NoShowCard({
+  tournament,
+  onWithdraw,
+  onReinstate,
+}: {
+  tournament: Tournament;
+  onWithdraw: (playerId: string) => void;
+  onReinstate: (playerId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState('');
+
+  const withdrawn = tournament.withdrawn ?? [];
+  const nameOf = (id: string) => tournament.players.find((p) => p.id === id)?.name ?? id;
+  const available: Player[] = tournament.players.filter((p) => !withdrawn.includes(p.id));
+  const selected = choice || available[0]?.id || '';
+
+  return (
+    <div className="card">
+      <div className="card__head">
+        <div className="card__title">
+          Nicht angetreten
+          {withdrawn.length > 0 && <span className="badge badge--red">{withdrawn.length}</span>}
+        </div>
+        <button type="button" className="btn btn--sm" onClick={() => setOpen(!open)}>
+          {open ? 'Ausblenden' : 'Team melden'}
+        </button>
+      </div>
+
+      {(open || withdrawn.length > 0) && (
+        <div className="card__body stack">
+          {withdrawn.length > 0 && (
+            <div className="stack">
+              {withdrawn.map((id) => (
+                <div className="row row--between" key={id}>
+                  <span>
+                    <strong>{nameOf(id)}</strong>
+                    <span className="faint"> · offene Spiele kampflos gewertet</span>
+                  </span>
+                  <button type="button" className="btn btn--sm" onClick={() => onReinstate(id)}>
+                    Doch angetreten
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {open && available.length > 0 && (
+            <div className="row" style={{ alignItems: 'flex-end' }}>
+              <div className="field" style={{ flex: 1 }}>
+                <label htmlFor="noshow-player">Team</label>
+                <select
+                  id="noshow-player"
+                  value={selected}
+                  onChange={(e) => setChoice(e.target.value)}
+                >
+                  {available.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.name}
+                      {player.club ? ` · ${player.club}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={!selected}
+                onClick={() => {
+                  if (
+                    confirm(
+                      `${nameOf(selected)} als nicht angetreten melden? Alle noch offenen Spiele gehen kampflos an den Gegner.`,
+                    )
+                  ) {
+                    onWithdraw(selected);
+                    setChoice('');
+                  }
+                }}
+              >
+                Kampflos werten
+              </button>
+            </div>
+          )}
+
+          <p className="faint">
+            Bereits gespielte Ergebnisse bleiben unverändert. Rücken beste Dritte nach, sind die
+            Punkte dieser Gruppe nicht mehr mit denen der anderen vergleichbar – die KO-Seite weist
+            darauf hin.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

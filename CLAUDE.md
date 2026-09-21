@@ -112,6 +112,40 @@ gibt.
 Tabelle, direkter Vergleich, Feldplan, Teamplan und ewige Tabelle brauchen dafür nichts: sie zählen
 Spiele, nicht Paarungen.
 
+### Nicht angetretene Teams
+
+`Tournament.withdrawn` ist die **einzige Quelle der Wahrheit** – eine Liste von Spieler-IDs, sonst
+nichts. `engine/withdraw.ts` leitet daraus alles ab; die Funktion heißt `settleNoShows()` und trägt
+für jedes spielbereite offene Spiel eines solchen Teams ein kampfloses Ergebnis über die volle
+Leg-Zahl ein.
+
+Der entscheidende Entwurfsschritt: **das Ergebnis wird eingetragen, nicht errechnet.** Dadurch
+bleibt die übrige Engine unberührt – Tabelle, direkter Vergleich, Qualifikation, Endplatzierung und
+ewige Tabelle rechnen mit einem ganz normalen Ergebnis weiter. `Match.noShow` ist reine
+Kennzeichnung für die Anzeige. Wer das auf „bei der Auswertung so tun als ob" umbaut, muss jede
+dieser Stellen anfassen und die Leg-Zahl der jeweiligen Phase mitschleppen.
+
+Drei Regeln, die man beim Ändern leicht zerstört:
+
+- **Gespieltes bleibt gespielt.** `settleNoShows` fasst nur Spiele ohne Ergebnis an – und solche,
+  die es selbst kampflos gewertet hat (`match.noShow` gesetzt). Letztere werden neu bestimmt, damit
+  es egal ist, in welcher Reihenfolge zwei Teams gemeldet werden: fehlen am Ende beide, steht dort
+  0:0 statt eines geschenkten Siegs.
+- **Nachziehen, wo Spiele entstehen oder spielbereit werden.** Der Store ruft `settleNoShows` in
+  `setResult` und `startKo` auf. Eine KO-Paarung kennt ihre Spieler erst, wenn die Vorspiele
+  entschieden sind – ohne diesen Aufruf stünde ein abgereistes Team plötzlich wieder im Bracket.
+- **Der Verzerrung nicht heimlich gegensteuern.** Alle verbliebenen Teams der Gruppe bekommen
+  denselben kampflosen Sieg, die Reihenfolge *innerhalb* der Gruppe bleibt also korrekt. Nicht mehr
+  vergleichbar sind die Punkte **zwischen** den Gruppen – und das betrifft genau einen Fall: die
+  Rangliste der Gruppendritten (12/3, 24/6, 48/12). `groupsWithWithdrawal()` liefert die betroffenen
+  Gruppen, die KO-Seite weist darauf hin. Eine Rechenkorrektur (etwa Ergebnisse gegen den
+  Gruppenletzten streichen) wurde bewusst verworfen: sie würde die Rangliste auch in Turnieren ohne
+  Ausfall verändern.
+
+Abschaltbar über `config.noShowWalkover`, gelesen mit `allowsNoShow()`. Vor dem Turnierstart ist das
+Entfernen aus der Spielerliste der saubere Weg – dann wird mit der tatsächlichen Teilnehmerzahl neu
+ausgelost, ganz ohne Wertungsfragen.
+
 ### Wertung der Gruppentabelle
 
 `engine/standings.ts` sortiert nach **Punkte → Leg-Differenz → direkter Vergleich → gewonnene Legs →
@@ -262,8 +296,9 @@ Das Logo wird über `public/logo.png` (bevorzugt) bzw. `public/logo.svg` ausgeta
 ## Prüfen von Änderungen
 
 Unit-Tests decken die Engine ab: `engine.test.ts` (Wertung, Setzung, Spielpläne), `result.test.ts`
-(Eingabe und Prüfung eines Ergebnisses), `tournament.test.ts` (Auslosung, Tabelle, Platzierung) und
-`playthrough.test.ts`, der Turniere mit 2 bis 24 Teilnehmern vollständig durchspielt. Sie sind der
+(Eingabe und Prüfung eines Ergebnisses), `tournament.test.ts` (Auslosung, Tabelle, Platzierung),
+`withdraw.test.ts` (nicht angetretene Teams) und `playthrough.test.ts`, der Turniere mit 2 bis 48
+Teilnehmern vollständig durchspielt. Sie sind der
 erste Anlaufpunkt für jede Regeländerung.
 
 **Vorsicht bei Tests gegen leere Tabellen:** stehen alle Werte auf null, entscheidet der Losentscheid

@@ -7,6 +7,7 @@ import {
   FORMAT_LABEL,
   SCORING_LABEL,
   SPORT_LABEL,
+  allowsNoShow,
   bestOf,
   scoringOf,
   type DartGame,
@@ -319,6 +320,21 @@ export function ConfigPage() {
               entfällt.
             </p>
           )}
+
+          <label className="row">
+            <input
+              type="checkbox"
+              checked={allowsNoShow(config)}
+              onChange={(e) => setConfig({ noShowWalkover: e.target.checked })}
+              style={{ width: 'auto' }}
+            />
+            <span>Nicht angetretene Teams kampflos werten</span>
+          </label>
+          <p className="faint">
+            {allowsNoShow(config)
+              ? 'Während des Turniers lässt sich ein Team als nicht angetreten markieren. Seine noch offenen Spiele gehen kampflos an den Gegner, bereits gespielte Ergebnisse bleiben stehen.'
+              : 'Ohne diese Option gibt es während des Turniers keinen Weg, ein fehlendes Team zu behandeln – vor dem Start wird es stattdessen aus der Spielerliste entfernt und neu ausgelost.'}
+          </p>
         </div>
       </div>
 

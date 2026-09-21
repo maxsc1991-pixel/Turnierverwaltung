@@ -41,6 +41,15 @@
   text-decoration: line-through;
 }
 
+/* Nicht angetretenes Team in der Gruppentabelle: lesbar, aber deutlich zurück. */
+.standings tr.is-withdrawn td {
+  color: var(--c-ink-faint);
+}
+
+.standings tr.is-withdrawn .standings__name {
+  text-decoration: line-through;
+}
+
 .player-row__present {
   text-align: center;
 }

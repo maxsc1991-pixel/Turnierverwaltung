@@ -224,6 +224,35 @@ einen Schlag zurücksetzen und dann Team für Team abhaken – umgekehrt setzt *
 Haken wieder. Im Kartenkopf steht, wie viele noch fehlen, und abgemeldete Zeilen sind
 durchgestrichen.
 
+## Wenn ein Team nicht antritt
+
+Der saubere Weg bleibt: **vor dem Turnierstart** das Team über ✕ aus der Spielerliste entfernen und
+den Spielplan neu erzeugen. Dann wird mit der tatsächlichen Teilnehmerzahl ausgelost, und es gibt
+keine Wertungsfragen.
+
+Ist das Turnier schon gestartet, geht das nicht mehr, ohne eingetragene Ergebnisse zu verlieren.
+Dafür gibt es auf der Turnierseite die Karte **Nicht angetreten**: Team auswählen, *Kampflos
+werten*, fertig.
+
+- Alle **noch offenen** Spiele des Teams gehen kampflos an den Gegner – über die volle Leg-Zahl,
+  also 2:0 bei Best of 3.
+- **Bereits gespielte Ergebnisse bleiben unverändert.** Wer schon gegen das Team angetreten ist,
+  behält sein Resultat; ein erkämpftes 2:1 wird nicht nachträglich zum geschenkten Sieg.
+- In der Tabelle steht das Team durchgestrichen mit dem Vermerk *nicht angetreten*, die Spiele sind
+  mit **kampflos** gekennzeichnet.
+- Über *Doch angetreten* lässt sich alles zurücknehmen – die kampflos vergebenen Ergebnisse
+  verschwinden wieder, die regulär gespielten bleiben.
+
+**Eine Einschränkung, die man kennen muss:** alle verbliebenen Teams der Gruppe bekommen denselben
+kampflosen Sieg geschenkt. Innerhalb der Gruppe ändert das an der Reihenfolge deshalb nichts. Rücken
+aber **beste Dritte** nach (12/3, 24/6, 48/12), sind die Punkte dieser Gruppe nicht mehr mit denen
+der anderen vergleichbar – der Dritte aus der betroffenen Gruppe steht dann besser da, als er es
+sich erspielt hat. Die Seite *KO-Phase vorbereiten* weist darauf hin; die Entscheidung bleibt beim
+Turnierleiter, es wird nichts stillschweigend umgerechnet.
+
+Die ganze Funktion lässt sich in der Konfiguration abschalten (*Nicht angetretene Teams kampflos
+werten*).
+
 ## Ablauf einer Gruppenphase mit KO-Runde
 
 Ist die Gruppenphase abgeschlossen, führt der Weg über die Seite **KO-Phase vorbereiten**. Dort

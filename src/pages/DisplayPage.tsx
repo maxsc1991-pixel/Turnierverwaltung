@@ -126,6 +126,7 @@ export function DisplayPage() {
               qualifyingPlaces={needsKo ? 2 : 0}
               thirdPlaceCandidate={(option?.bestThirds ?? 0) > 0}
               showPoints={config.sport === 'cornhole'}
+              withdrawn={tournament.withdrawn}
               compact
             />
           </div>

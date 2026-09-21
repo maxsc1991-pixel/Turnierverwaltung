@@ -11,6 +11,8 @@ interface Props {
   showPoints?: boolean;
   /** Kompakte Darstellung für die Anzeigetafel. */
   compact?: boolean;
+  /** Teams, die nicht angetreten sind – werden zurückgenommen dargestellt. */
+  withdrawn?: readonly string[];
 }
 
 export function StandingsTable({
@@ -20,6 +22,7 @@ export function StandingsTable({
   thirdPlaceCandidate = false,
   showPoints = false,
   compact = false,
+  withdrawn = [],
 }: Props) {
   const nameOf = (id: string) => players.find((p) => p.id === id);
 
@@ -71,17 +74,21 @@ export function StandingsTable({
         <tbody>
           {standings.map((row) => {
             const player = nameOf(row.playerId);
-            const qualified = row.rank <= qualifyingPlaces;
-            const candidate = thirdPlaceCandidate && row.rank === qualifyingPlaces + 1;
+            const out = withdrawn.includes(row.playerId);
+            const qualified = !out && row.rank <= qualifyingPlaces;
+            const candidate = !out && thirdPlaceCandidate && row.rank === qualifyingPlaces + 1;
+            const state = qualified
+              ? 'is-qualified'
+              : candidate
+                ? 'is-third-candidate'
+                : undefined;
             return (
-              <tr
-                key={row.playerId}
-                className={qualified ? 'is-qualified' : candidate ? 'is-third-candidate' : undefined}
-              >
+              <tr key={row.playerId} className={[state, out && 'is-withdrawn'].filter(Boolean).join(' ') || undefined}>
                 <td>{row.rank}</td>
                 <td>
                   <span className="standings__name">{player?.name ?? '–'}</span>
-                  {player?.club && <span className="standings__club">{player.club}</span>}
+                  {out && <span className="standings__club">nicht angetreten</span>}
+                  {!out && player?.club && <span className="standings__club">{player.club}</span>}
                   {row.tiebreak && !compact && (
                     <span className="standings__tiebreak"> · {row.tiebreak}</span>
                   )}

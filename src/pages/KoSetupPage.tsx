@@ -13,6 +13,7 @@ import { qualifyFromGroups, type ThirdPlaceRow } from '../engine/qualification';
 import { allStandings, groupPhaseComplete, seedOf, standingsOptions } from '../engine/tournament';
 import { estimatedEnd, formatTime } from '../engine/schedule';
 import { findGroupOption, roundNames } from '../engine/validation';
+import { groupsWithWithdrawal } from '../engine/withdraw';
 
 /**
  * Zwischenschritt zwischen Gruppenphase und KO-Runde: hier werden Spieldauer,
@@ -86,6 +87,7 @@ export function KoSetupPage() {
 
   const { config, players } = tournament;
   const option = findGroupOption(config.participants, config.groupCount);
+  const withdrawnGroups = groupsWithWithdrawal(tournament);
   const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '–';
   const legsToWin = Math.floor(settings.legs / 2) + 1;
 
@@ -225,6 +227,19 @@ export function KoSetupPage() {
         </div>
       </div>
 
+      {withdrawnGroups.length > 0 && (
+        <div className="notice notice--warning">
+          <strong>
+            {withdrawnGroups.length === 1
+              ? `In ${withdrawnGroups[0]} ist ein Team nicht angetreten.`
+              : `In ${withdrawnGroups.join(' und ')} sind Teams nicht angetreten.`}
+          </strong>{' '}
+          {(option?.bestThirds ?? 0) > 0
+            ? 'Die kampflosen Siege wurden dort an alle verbliebenen Teams gleichermaßen vergeben – innerhalb der Gruppe ändert das nichts an der Reihenfolge. Beim Vergleich der Gruppendritten über die Gruppen hinweg sind die Punkte dadurch aber nicht mehr gleichwertig. Bitte die Rangliste unten vor dem Start prüfen.'
+            : 'Innerhalb der Gruppe ändert das nichts an der Reihenfolge, weil alle verbliebenen Teams denselben kampflosen Sieg bekommen haben. Da sich nur die ersten beiden jeder Gruppe qualifizieren, wirkt sich das nicht über die Gruppen hinweg aus.'}
+        </div>
+      )}
+
       {(option?.bestThirds ?? 0) > 0 && preview && (
         <div className="card">
           <div className="card__head">
@@ -268,6 +283,7 @@ export function KoSetupPage() {
                     qualifyingPlaces={2}
                     thirdPlaceCandidate={(option?.bestThirds ?? 0) > 0}
                     showPoints={config.sport === 'cornhole'}
+                    withdrawn={tournament.withdrawn}
                   />
                 </div>
               </div>
