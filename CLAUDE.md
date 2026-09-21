@@ -245,8 +245,10 @@ Das Logo wird über `public/logo.png` (bevorzugt) bzw. `public/logo.svg` ausgeta
 
 ## Prüfen von Änderungen
 
-Unit-Tests decken die Engine ab (`engine.test.ts`, `playthrough.test.ts` – letzterer spielt Turniere
-mit 2 bis 24 Teilnehmern vollständig durch). Sie sind der erste Anlaufpunkt für jede Regeländerung.
+Unit-Tests decken die Engine ab: `engine.test.ts` (Wertung, Setzung, Spielpläne), `result.test.ts`
+(Eingabe und Prüfung eines Ergebnisses), `tournament.test.ts` (Auslosung, Tabelle, Platzierung) und
+`playthrough.test.ts`, der Turniere mit 2 bis 24 Teilnehmern vollständig durchspielt. Sie sind der
+erste Anlaufpunkt für jede Regeländerung.
 
 **Vorsicht bei Tests gegen leere Tabellen:** stehen alle Werte auf null, entscheidet der Losentscheid
 nach Setzliste und liefert zufällig oft genau die erwartete Reihenfolge – ein solcher Test besteht

@@ -167,11 +167,21 @@ describe('Prüfung eines Ergebnisses – Unentschieden', () => {
 });
 
 describe('Prüfung eines Ergebnisses – Punkte', () => {
-  it('verlangt beim Cornhole immer ein Punkteergebnis', () => {
-    const { errors } = validateResult(cornholeConfig(3), draft('2', '1'), { allowDraw: false });
+  it('verlangt beim Cornhole über ein einzelnes Leg ein Punkteergebnis', () => {
+    const { errors } = validateResult(cornholeConfig(1), draft('1', '0'), { allowDraw: false });
     expect(errors).toContain(
-      'Beim Cornhole muss zusätzlich das Punkteergebnis eingetragen werden.',
+      'Bei einem einzelnen Leg muss zusätzlich das Punkteergebnis eingetragen werden.',
     );
+  });
+
+  it('lässt die Punkte beim Cornhole über mehrere Legs weg', () => {
+    // Über mehrere Legs sind die Punkte Gesamtsummen und damit freiwillig –
+    // auch beim Cornhole, wo sie sonst die Tabelle mitentscheiden.
+    const { errors, result } = validateResult(cornholeConfig(3), draft('2', '1'), {
+      allowDraw: false,
+    });
+    expect(errors).toEqual([]);
+    expect(result).toEqual({ legsA: 2, legsB: 1, pointsA: undefined, pointsB: undefined });
   });
 
   it('verlangt beim Dart über ein einzelnes Leg ebenfalls Punkte', () => {
@@ -225,8 +235,20 @@ describe('Prüfung eines Ergebnisses – Punkte', () => {
     expect(result).toEqual({ legsA: 2, legsB: 1, pointsA: 180, pointsB: 140 });
   });
 
-  it('verwirft halb ausgefüllte Punkte, statt sie zu raten', () => {
+  it('weist halb ausgefüllte Punkte zurück, statt sie stillschweigend zu verwerfen', () => {
+    // Freiwillig heißt: beide Felder oder keines. Einen eingetragenen Wert
+    // einfach wegzulassen wäre für den Eingebenden nicht erkennbar.
     const { errors, result } = validateResult(dartConfig(3), draft('2', '1', '180', ''), {
+      allowDraw: false,
+    });
+    expect(errors).toContain(
+      'Bitte die Punkte für beide Seiten eintragen oder beide Felder leer lassen.',
+    );
+    expect(result).toBeUndefined();
+  });
+
+  it('nimmt ein Ergebnis über mehrere Legs auch ganz ohne Punkte an', () => {
+    const { errors, result } = validateResult(dartConfig(3), draft('2', '1'), {
       allowDraw: false,
     });
     expect(errors).toEqual([]);

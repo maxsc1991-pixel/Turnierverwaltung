@@ -228,8 +228,32 @@ describe('Neu auslosen', () => {
 
 describe('Wertungsoptionen je Sportart', () => {
   it('wertet die Punkte nur beim Cornhole mit', () => {
-    expect(standingsOptions(config({ sport: 'cornhole' }))).toEqual({ usePoints: true });
-    expect(standingsOptions(config({ sport: 'dart' }))).toEqual({ usePoints: false });
+    expect(standingsOptions(config({ sport: 'cornhole' }))).toEqual({
+      usePoints: true,
+      scoring: 'standard',
+    });
+    expect(standingsOptions(config({ sport: 'dart' }))).toEqual({
+      usePoints: false,
+      scoring: 'standard',
+    });
+  });
+
+  it('lässt in der Leg-Bonus-Wertung auch beim Cornhole die Punkte außen vor', () => {
+    // Dort steckt die Leg-Ausbeute schon in den Punkten; die Punktdifferenz
+    // zusätzlich zu werten hieße, dasselbe zweimal zu werten.
+    expect(standingsOptions(config({ sport: 'cornhole', scoring: 'legBonus' }))).toEqual({
+      usePoints: false,
+      scoring: 'legBonus',
+    });
+  });
+
+  it('bleibt über ein einzelnes Leg bei der Standardwertung', () => {
+    const single = config({
+      sport: 'cornhole',
+      scoring: 'legBonus',
+      cornhole: { legs: 1, targetPoints: 21 },
+    });
+    expect(standingsOptions(single)).toEqual({ usePoints: true, scoring: 'standard' });
   });
 
   it('lässt beim Cornhole die Punktdifferenz vor dem direkten Vergleich entscheiden', () => {
