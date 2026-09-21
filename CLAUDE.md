@@ -82,6 +82,27 @@ Die Rangliste der Gruppendritten auf der KO-Seite kommt als `thirdsRanking` aus
 `qualifyFromGroups()` – also aus **derselben** Sortierung, die auch die Setzung erzeugt. Wer sie
 anderswo nachbaut, riskiert eine Anzeige, die der tatsächlichen Qualifikation widerspricht.
 
+### Hin- und Rückrunde
+
+`config.returnLeg` (abgefragt über `hasReturnLeg`) hängt in `buildGroupMatches` dieselben
+Kreisverfahren-Runden ein zweites Mal an, mit getauschten Seiten und `Match.leg = 2`. Die
+Wiederholung in **derselben Rundenreihenfolge** ist Absicht: dadurch liegen zwischen Hin- und
+Rückspiel einer Paarung immer alle übrigen Runden der Gruppe – der größtmögliche Abstand. Wer die
+Rückrunde umsortiert oder mischt, verkleinert ihn.
+
+Dass die Rückrunde einer Gruppe erst nach deren kompletter Hinrunde beginnt, ist **eine Regel der
+Terminplanung**, nicht der Spielerzeugung: Gruppenspiele hängen an keinem Vorspiel, der Planer
+verteilt also allein nach Pausenzeit. `scheduleMatches` sperrt Spiele mit `leg === 2`, bis alle
+Hinrundenspiele derselben Gruppe einen Termin haben.
+
+Dass dieselbe Paarung nicht unmittelbar im nächsten Zeitslot wiederkehrt, ergibt sich daraus von
+selbst – nach der Hinrunde hat jeder andere Gegner länger pausiert als der eben besiegte. Eine
+eigene Sperre dafür wäre toter Code; die Tests sichern die Eigenschaft stattdessen ab. Unvermeidbar
+ist das Wiedersehen nur in einer Zweiergruppe, weil es dort nur eine Paarung gibt.
+
+Tabelle, direkter Vergleich, Feldplan, Teamplan und ewige Tabelle brauchen dafür nichts: sie zählen
+Spiele, nicht Paarungen.
+
 ### Wertung der Gruppentabelle
 
 `engine/standings.ts` sortiert nach **Punkte → Leg-Differenz → direkter Vergleich → gewonnene Legs →

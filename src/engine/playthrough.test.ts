@@ -119,4 +119,48 @@ describe('Turnier vollständig durchspielen', () => {
       expect(third?.result).toBeDefined();
     });
   }
+
+  for (const [participants, groupCount] of [
+    [8, 2],
+    [16, 4],
+    [6, 1],
+  ] as Array<[number, number]>) {
+    it(`Hin- und Rückrunde mit ${participants} Teilnehmern in ${groupCount} Gruppen läuft bis zum Ende durch`, () => {
+      const tournament = createTournament(
+        config('groups', participants, {
+          groupCount,
+          groupSize: participants / groupCount,
+          thirdPlaceMatch: participants > 6,
+          returnLeg: true,
+        }),
+        makePlayers(participants),
+        participants * 5,
+      );
+
+      const size = participants / groupCount;
+      const groupMatches = tournament.matches.filter((m) => m.phase === 'group');
+      expect(groupMatches).toHaveLength(groupCount * size * (size - 1));
+      expect(groupMatches.filter((m) => m.leg === 2)).toHaveLength(groupMatches.length / 2);
+
+      const afterGroups = playEverything({ ...tournament, stage: 'group' });
+      expect(afterGroups.matches.filter((m) => m.phase === 'group').every((m) => m.result)).toBe(true);
+
+      // Jeder hat gegen jeden Gruppengegner zweimal gespielt.
+      for (const group of afterGroups.groups) {
+        for (const playerId of group.playerIds) {
+          const own = afterGroups.matches.filter(
+            (m) =>
+              m.groupId === group.id &&
+              ((m.a.kind === 'player' && m.a.playerId === playerId) ||
+                (m.b.kind === 'player' && m.b.playerId === playerId)),
+          );
+          expect(own, playerId).toHaveLength((size - 1) * 2);
+        }
+      }
+
+      const played = playEverything(startKoPhase(afterGroups));
+      expect(tournamentComplete(played), 'Turnier muss abschließbar sein').toBe(true);
+      expect(computeFinalRanking(played).filter((r) => r.rank === 1)).toHaveLength(1);
+    });
+  }
 });

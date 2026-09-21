@@ -61,6 +61,11 @@ export function groupFieldMap(
  * Ist einer Gruppe ein festes Feld zugewiesen, laufen ihre Spiele ausschließlich
  * dort – und damit zwangsläufig nacheinander. Die übrigen Partien weichen auf
  * die nicht vergebenen Felder aus.
+ *
+ * Bei Hin- und Rückrunde beginnt die Rückrunde einer Gruppe erst, wenn alle
+ * Hinrundenspiele derselben Gruppe terminiert sind. Dass Hin- und Rückspiel
+ * einer Paarung nicht unmittelbar aufeinanderfolgen, ergibt sich daraus von
+ * selbst: nach der Hinrunde hat jeder andere Gegner länger pausiert.
  */
 export function scheduleMatches(
   matches: readonly Match[],
@@ -111,6 +116,21 @@ export function scheduleMatches(
     return { min: Math.min(...rests), total: rests.reduce((a, b) => a + b, 0) };
   };
 
+  // Rückrundenspiele warten auf die komplette Hinrunde ihrer Gruppe.
+  const firstLegByGroup = new Map<string, string[]>();
+  for (const match of playable) {
+    if (match.phase !== 'group' || !match.groupId || match.leg === 2) continue;
+    firstLegByGroup.set(match.groupId, [...(firstLegByGroup.get(match.groupId) ?? []), match.id]);
+  }
+
+  const legReady = (match: Match, slot: number): boolean => {
+    if (match.leg !== 2 || !match.groupId) return true;
+    return (firstLegByGroup.get(match.groupId) ?? []).every((id) => {
+      const first = scheduledSlot.get(id);
+      return first !== undefined && first < slot;
+    });
+  };
+
   const maxSlots = playable.length + 2;
   for (let slot = 0; slot < maxSlots && pending.size > 0; slot++) {
     const busy = new Set<string>();
@@ -123,6 +143,7 @@ export function scheduleMatches(
         const match = byId.get(id) as Match;
         if (!fits(match, field)) continue;
         if (!depsReady(match, slot)) continue;
+        if (!legReady(match, slot)) continue;
         const players = resolver.playerIds(match);
         if (players.some((p) => busy.has(p))) continue;
 

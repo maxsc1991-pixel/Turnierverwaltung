@@ -1192,3 +1192,193 @@ describe('Spielplan je Spielfeld', () => {
     for (const match of freilose) expect(ids.has(match.id)).toBe(false);
   });
 });
+
+describe('Hin- und Rückrunde', () => {
+  /** Alle Gruppenspiele mit Rückrunde, terminiert wie im echten Turnier. */
+  function plan(participants: number, groupCount: number, fields: number, pinFields = false) {
+    const players = makePlayers(participants);
+    const drawn = drawGroups(players, groupCount, createRng(participants + groupCount));
+    const groups = pinFields ? drawn.map((g, i) => ({ ...g, field: i + 1 })) : drawn;
+    const cfg = config({
+      format: 'groups',
+      participants,
+      groupCount,
+      groupSize: participants / groupCount,
+      fields,
+      returnLeg: true,
+    });
+    const matches = buildGroupMatches(groups, { returnLeg: true });
+    const scheduled = scheduleMatches(matches, cfg, {
+      groupFields: groupFieldMap(groups, cfg.fields),
+    });
+    return { groups, cfg, matches, scheduled };
+  }
+
+  const playerOfSlot = (slot: Match['a']): string => (slot.kind === 'player' ? slot.playerId : '');
+  const pairOf = (match: Match): string =>
+    [playerOfSlot(match.a), playerOfSlot(match.b)].sort().join('|');
+
+  /** Zeitslot je Spiel – die Startzeiten in aufsteigender Reihenfolge. */
+  function slotIndexes(scheduled: readonly Match[]): Map<string, number> {
+    const times = [...new Set(scheduled.map((m) => m.scheduledAt).filter(Boolean))].sort() as string[];
+    const index = new Map(times.map((t, i) => [t, i]));
+    const result = new Map<string, number>();
+    for (const match of scheduled) {
+      if (match.scheduledAt) result.set(match.id, index.get(match.scheduledAt) as number);
+    }
+    return result;
+  }
+
+  const SETUPS: Array<[number, number, number]> = [
+    [16, 4, 3],
+    [12, 3, 2],
+    [8, 2, 1],
+    [9, 1, 2],
+    [6, 1, 3],
+  ];
+
+  it('trägt jede Paarung zweimal aus, beim zweiten Mal mit getauschten Seiten', () => {
+    const { matches } = plan(16, 4, 3);
+    expect(matches).toHaveLength(4 * 6 * 2);
+
+    const byPair = new Map<string, Match[]>();
+    for (const match of matches) {
+      byPair.set(pairOf(match), [...(byPair.get(pairOf(match)) ?? []), match]);
+    }
+    expect(byPair.size).toBe(4 * 6);
+
+    for (const [pair, list] of byPair) {
+      expect(list, pair).toHaveLength(2);
+      const [first, second] = [...list].sort((x, y) => x.round - y.round);
+      expect(first.leg).toBe(1);
+      expect(second.leg).toBe(2);
+      expect(playerOfSlot(second.a)).toBe(playerOfSlot(first.b));
+      expect(playerOfSlot(second.b)).toBe(playerOfSlot(first.a));
+      expect(second.roundLabel).toContain('Rückrunde');
+    }
+  });
+
+  it('lässt ohne die Einstellung alles beim Einfachen', () => {
+    const groups = drawGroups(makePlayers(16), 4, createRng(7));
+    const matches = buildGroupMatches(groups);
+    expect(matches).toHaveLength(4 * 6);
+    expect(matches.every((m) => m.leg === 1)).toBe(true);
+    expect(matches.every((m) => m.roundLabel.startsWith('Runde'))).toBe(true);
+  });
+
+  it.each(SETUPS)(
+    'startet die Rückrunde erst nach der kompletten Hinrunde (%i Spieler, %i Gruppen, %i Felder)',
+    (participants, groupCount, fields) => {
+      const { groups, scheduled } = plan(participants, groupCount, fields);
+      const slots = slotIndexes(scheduled);
+      expect(slots.size, 'jedes Spiel braucht einen Termin').toBe(scheduled.length);
+
+      for (const group of groups) {
+        const inGroup = scheduled.filter((m) => m.groupId === group.id);
+        const firstLeg = inGroup.filter((m) => m.leg === 1).map((m) => slots.get(m.id) as number);
+        const returnLeg = inGroup.filter((m) => m.leg === 2).map((m) => slots.get(m.id) as number);
+        expect(firstLeg.length, group.name).toBeGreaterThan(0);
+        expect(returnLeg.length).toBe(firstLeg.length);
+        expect(Math.max(...firstLeg), `${group.name}: Rückrunde zu früh`).toBeLessThan(
+          Math.min(...returnLeg),
+        );
+      }
+    },
+  );
+
+  // Ergibt sich aus der Sperre plus dem Pausenausgleich: nach der Hinrunde hat
+  // jeder andere Gegner länger pausiert als der eben besiegte.
+  it.each(SETUPS)(
+    'wiederholt keine Paarung unmittelbar (%i Spieler, %i Gruppen, %i Felder)',
+    (participants, groupCount, fields) => {
+      const { scheduled } = plan(participants, groupCount, fields);
+      const slots = slotIndexes(scheduled);
+
+      const byPair = new Map<string, number[]>();
+      for (const match of scheduled) {
+        const slot = slots.get(match.id) as number;
+        byPair.set(pairOf(match), [...(byPair.get(pairOf(match)) ?? []), slot]);
+      }
+
+      for (const [pair, list] of byPair) {
+        const [first, second] = [...list].sort((x, y) => x - y);
+        expect(second - first, `${pair} spielt zweimal am Stück`).toBeGreaterThan(1);
+      }
+    },
+  );
+
+  it('setzt auch mit festen Gruppenfeldern niemanden zeitgleich auf zwei Felder', () => {
+    const { scheduled } = plan(16, 4, 4, true);
+    const resolver = new Resolver(scheduled);
+
+    const perSlot = new Map<string, string[]>();
+    const perField = new Map<string, number>();
+    for (const match of scheduled) {
+      expect(match.scheduledAt, `${match.label} ohne Termin`).toBeDefined();
+      const time = match.scheduledAt as string;
+      perSlot.set(time, [...(perSlot.get(time) ?? []), ...resolver.playerIds(match)]);
+      const key = `${time}|${match.field}`;
+      perField.set(key, (perField.get(key) ?? 0) + 1);
+    }
+
+    for (const [time, ids] of perSlot) {
+      expect(new Set(ids).size, `Doppelbelegung um ${time}`).toBe(ids.length);
+    }
+    for (const [key, count] of perField) {
+      expect(count, `zwei Spiele auf ${key}`).toBe(1);
+    }
+  });
+
+  it('terminiert auch Zweiergruppen vollständig', () => {
+    // Bei zwei Spielern gibt es nur eine Paarung – das Wiedersehen im nächsten
+    // Zeitslot ist dort unvermeidbar, es darf aber kein Spiel liegenbleiben.
+    const { scheduled } = plan(4, 2, 2);
+    expect(scheduled).toHaveLength(2 * 2);
+    expect(scheduled.every((m) => Boolean(m.scheduledAt))).toBe(true);
+  });
+
+  it('zählt beide Spiele einer Paarung in der Tabelle', () => {
+    const players = makePlayers(2);
+    const matches: Match[] = [
+      {
+        id: 'm1',
+        phase: 'group',
+        round: 1,
+        indexInRound: 0,
+        groupId: 'g1',
+        leg: 1,
+        label: 'Hinrunde',
+        roundLabel: 'Hinrunde 1',
+        a: { kind: 'player', playerId: 'p1' },
+        b: { kind: 'player', playerId: 'p2' },
+        result: { legsA: 2, legsB: 0 },
+      },
+      {
+        id: 'm2',
+        phase: 'group',
+        round: 2,
+        indexInRound: 0,
+        groupId: 'g1',
+        leg: 2,
+        label: 'Rückrunde',
+        roundLabel: 'Rückrunde 1',
+        a: { kind: 'player', playerId: 'p2' },
+        b: { kind: 'player', playerId: 'p1' },
+        result: { legsA: 2, legsB: 1 },
+      },
+    ];
+
+    const table = computeStandings(['p1', 'p2'], matches, seedOf(players));
+    const p1 = table.find((row) => row.playerId === 'p1') as Standing;
+    const p2 = table.find((row) => row.playerId === 'p2') as Standing;
+
+    expect(p1.played).toBe(2);
+    expect(p2.played).toBe(2);
+    expect(p1.won).toBe(1);
+    expect(p2.won).toBe(1);
+    expect(p1.points).toBe(2);
+    expect(p2.points).toBe(2);
+    expect(p1.legsFor).toBe(3);
+    expect(p2.legsFor).toBe(2);
+  });
+});

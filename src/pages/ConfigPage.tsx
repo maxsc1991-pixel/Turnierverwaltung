@@ -51,6 +51,11 @@ export function ConfigPage() {
   const options = useMemo(() => groupOptions(config.participants), [config.participants]);
   const selectedOption = findGroupOption(config.participants, config.groupCount);
   const issues = useMemo(() => validateConfig(config, players.length), [config, players.length]);
+  // Spiele der Gruppenphase: jeder gegen jeden je Gruppe, mit Rückrunde doppelt.
+  const groupMatchCount =
+    config.groupCount *
+    ((config.groupSize * (config.groupSize - 1)) / 2) *
+    (config.returnLeg ? 2 : 1);
   const blocked = hasErrors(issues);
 
   const changeParticipants = (value: number) => {
@@ -232,6 +237,25 @@ export function ConfigPage() {
               </>
             )}
           </div>
+
+          {config.format === 'groups' && selectedOption && (
+            <>
+              <label className="row">
+                <input
+                  type="checkbox"
+                  checked={config.returnLeg ?? false}
+                  onChange={(e) => setConfig({ returnLeg: e.target.checked })}
+                  style={{ width: 'auto' }}
+                />
+                <span>Hin- und Rückrunde spielen</span>
+              </label>
+              <p className="faint">
+                {config.returnLeg
+                  ? `Jede Paarung wird zweimal ausgetragen – ${groupMatchCount} statt ${groupMatchCount / 2} Gruppenspiele. Die Rückrunde beginnt erst, wenn die Hinrunde der Gruppe komplett ist.`
+                  : `Jede Paarung wird einmal ausgetragen – ${groupMatchCount} Gruppenspiele.`}
+              </p>
+            </>
+          )}
 
           {config.format === 'groups' && selectedOption && config.groupCount === 1 && (
             <>

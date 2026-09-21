@@ -54,6 +54,11 @@ export interface Match {
   round: number;
   indexInRound: number;
   groupId?: string;
+  /**
+   * Durchgang der Gruppenphase: 1 = Hinrunde, 2 = Rückrunde. Fehlt das Feld,
+   * gilt der erste Durchgang – so bleiben gespeicherte Turniere gültig.
+   */
+  leg?: 1 | 2;
   /** Bezeichnung des einzelnen Spiels, z.B. "Viertelfinale 2". */
   label: string;
   /** Bezeichnung der ganzen Runde, z.B. "Viertelfinale" – Spaltentitel im Bracket. */
@@ -123,6 +128,12 @@ export interface TournamentConfig {
    */
   scoring: Scoring;
   /**
+   * Hin- und Rückrunde in der Gruppenphase: jede Paarung wird zweimal
+   * ausgetragen, beim zweiten Mal mit getauschten Seiten – abgefragt über
+   * `hasReturnLeg`, nie über das Feld selbst.
+   */
+  returnLeg: boolean;
+  /**
    * Nur bei genau einer Gruppe relevant: Spielen die beiden Erstplatzierten
    * anschließend ein Finale, oder entscheidet allein die Tabelle?
    */
@@ -187,6 +198,7 @@ export function defaultConfig(): TournamentConfig {
     groupCount: 4,
     groupSize: 4,
     thirdPlaceMatch: true,
+    returnLeg: false,
     groupFinal: true,
     scoring: 'standard',
     dart: { game: '501', legs: { '301': 3, '501': 3, cricket: 3 } },
@@ -236,6 +248,14 @@ export function showsPoints(config: TournamentConfig): boolean {
 export function scoringOf(config: TournamentConfig): Scoring {
   if (bestOf(config) === 1) return 'standard';
   return config.scoring ?? 'standard';
+}
+
+/**
+ * Wird in der Gruppenphase eine Rückrunde gespielt? Fängt zugleich gespeicherte
+ * Turniere ab, die das Feld noch nicht kennen.
+ */
+export function hasReturnLeg(config: TournamentConfig): boolean {
+  return config.format === 'groups' && (config.returnLeg ?? false);
 }
 
 /** Folgt auf die Gruppenphase überhaupt eine KO-Runde? */

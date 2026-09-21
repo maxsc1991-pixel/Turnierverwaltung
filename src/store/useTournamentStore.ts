@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { KoSettings, MatchResult, Player, Tournament, TournamentConfig } from '../engine/types';
-import { defaultConfig } from '../engine/types';
+import { defaultConfig, hasReturnLeg } from '../engine/types';
 import { newPlayerId, parsePlayerList, reseed } from '../engine/players';
 import { buildGroupMatches } from '../engine/groups';
 import { groupFieldMap, scheduleMatches } from '../engine/schedule';
@@ -158,9 +158,11 @@ export const useTournamentStore = create<AppState>()(
               return {
                 ...t,
                 groups,
-                matches: scheduleMatches(buildGroupMatches(groups), t.config, {
-                  groupFields: groupFieldMap(groups, t.config.fields),
-                }),
+                matches: scheduleMatches(
+                  buildGroupMatches(groups, { returnLeg: hasReturnLeg(t.config) }),
+                  t.config,
+                  { groupFields: groupFieldMap(groups, t.config.fields) },
+                ),
               };
             }
 

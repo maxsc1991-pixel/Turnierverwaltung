@@ -9,7 +9,7 @@ import type {
   Tournament,
   TournamentConfig,
 } from './types';
-import { applyKoSettings, hasKoPhase, scoringOf } from './types';
+import { applyKoSettings, hasKoPhase, hasReturnLeg, scoringOf } from './types';
 import { buildSingleElimination, buildThirdPlaceMatch, seedIntoBracket } from './bracket';
 import { buildDoubleElimination, isBracketResetNeeded } from './doubleKo';
 import { buildGroupMatches, drawGroups } from './groups';
@@ -33,7 +33,7 @@ export function generatePlan(
 ): { groups: Group[]; matches: Match[] } {
   if (config.format === 'groups') {
     const groups = drawGroups(players, config.groupCount, createRng(seed));
-    const matches = scheduleMatches(buildGroupMatches(groups), config, {
+    const matches = scheduleMatches(buildGroupMatches(groups, { returnLeg: hasReturnLeg(config) }), config, {
       groupFields: groupFieldMap(groups, config.fields),
     });
     return { groups, matches };
