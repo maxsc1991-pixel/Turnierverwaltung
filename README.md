@@ -102,6 +102,12 @@ Konfigurationsseite legt fest, was danach passiert: entweder bestreiten die beid
 ein **Finale** (Dritter wird der Tabellendritte), oder es gibt **keine KO-Runde** und die Endtabelle
 entscheidet. Mit dem letzten Gruppenspiel ist das Turnier dann beendet.
 
+**Hin- und Rückrunde** lässt sich auf der Konfigurationsseite zuschalten: jede Paarung wird dann
+zweimal ausgetragen, beim zweiten Mal mit getauschten Seiten. Beide Spiele zählen einzeln in die
+Tabelle. Der Spielplan setzt die Runden einer Gruppe dabei streng der Reihe nach, sodass zwischen
+Hin- und Rückspiel einer Paarung immer die übrigen Runden der Gruppe liegen – niemand trifft kurz
+hintereinander zweimal auf denselben Gegner. Nur in einer Zweiergruppe geht das nicht anders.
+
 **Ab zwei Gruppen** muss die Zahl der Qualifikanten eine Zweierpotenz ergeben – dafür gilt eine
 einzige Regel:
 
@@ -313,6 +319,11 @@ gebildet. Für jeden Zeitslot wird jedes freie Feld mit der spielbereiten Partie
 **am längsten pausiert haben**. Dadurch entstehen weder Doppelbelegungen noch einzelne Spieler, die
 auffällig lange warten. Auf der Plan-Seite lassen sich Feld und Startzeit jedes Spiels vor dem
 Turnierstart noch von Hand überschreiben.
+
+Mit Hin- und Rückrunde kommt eine zweite Regel dazu: die Runden einer Gruppe laufen der Reihe nach,
+eine Runde beginnt also erst, wenn die vorige komplett angesetzt ist. Andernfalls würde die
+Pausenregel ausgerechnet das Rückspiel vorziehen – nach der Hinrunde haben die beiden Spieler, die
+zuletzt gegeneinander angetreten sind, gemeinsam die längste Pause.
 
 ## Aufbau
 

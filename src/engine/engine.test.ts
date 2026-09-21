@@ -1235,7 +1235,18 @@ describe('Hin- und Rückrunde', () => {
     [8, 2, 1],
     [9, 1, 2],
     [6, 1, 3],
+    // Aufstellungen, in denen Gruppengröße und Feldzahl nicht glatt aufgehen –
+    // dort zog der Planer früher das Rückspiel der zuletzt gespielten Paarung
+    // vor, weil genau deren beide Spieler am längsten pausiert hatten.
+    [12, 3, 3],
+    [4, 1, 1],
+    [6, 1, 2],
+    [8, 1, 3],
   ];
+
+  /** Runden je Durchgang – bei ungerader Gruppengröße zählt die Freilosrunde mit. */
+  const roundsPerLeg = (groupSize: number): number =>
+    groupSize % 2 === 0 ? groupSize - 1 : groupSize;
 
   it('trägt jede Paarung zweimal aus, beim zweiten Mal mit getauschten Seiten', () => {
     const { matches } = plan(16, 4, 3);
@@ -1286,13 +1297,17 @@ describe('Hin- und Rückrunde', () => {
     },
   );
 
-  // Ergibt sich aus der Sperre plus dem Pausenausgleich: nach der Hinrunde hat
-  // jeder andere Gegner länger pausiert als der eben besiegte.
+  // Der Abstand ist keine Nebenwirkung des Pausenausgleichs, sondern folgt aus
+  // der Rundenreihenfolge: zwischen beiden Spielen einer Paarung liegt jede
+  // andere Runde der Gruppe, also mindestens so viele Zeitslots wie ein
+  // Durchgang Runden hat. Ohne diese Regel bevorzugt der Planer sogar die
+  // sofortige Wiederholung, weil deren beide Spieler am längsten pausiert haben.
   it.each(SETUPS)(
-    'wiederholt keine Paarung unmittelbar (%i Spieler, %i Gruppen, %i Felder)',
+    'hält Hin- und Rückspiel eine ganze Runde auseinander (%i Spieler, %i Gruppen, %i Felder)',
     (participants, groupCount, fields) => {
       const { scheduled } = plan(participants, groupCount, fields);
       const slots = slotIndexes(scheduled);
+      const minimum = roundsPerLeg(participants / groupCount);
 
       const byPair = new Map<string, number[]>();
       for (const match of scheduled) {
@@ -1300,12 +1315,62 @@ describe('Hin- und Rückrunde', () => {
         byPair.set(pairOf(match), [...(byPair.get(pairOf(match)) ?? []), slot]);
       }
 
+      expect(byPair.size, 'keine Paarungen terminiert').toBeGreaterThan(0);
       for (const [pair, list] of byPair) {
         const [first, second] = [...list].sort((x, y) => x - y);
-        expect(second - first, `${pair} spielt zweimal am Stück`).toBeGreaterThan(1);
+        expect(second - first, `${pair} spielt zu schnell wieder gegeneinander`).toBeGreaterThanOrEqual(
+          minimum,
+        );
       }
     },
   );
+
+  it.each(SETUPS)(
+    'spielt die Runden einer Gruppe der Reihe nach (%i Spieler, %i Gruppen, %i Felder)',
+    (participants, groupCount, fields) => {
+      const { groups, scheduled } = plan(participants, groupCount, fields);
+      const slots = slotIndexes(scheduled);
+
+      for (const group of groups) {
+        const byRound = new Map<number, number[]>();
+        for (const match of scheduled.filter((m) => m.groupId === group.id)) {
+          const slot = slots.get(match.id) as number;
+          byRound.set(match.round, [...(byRound.get(match.round) ?? []), slot]);
+        }
+
+        const rounds = [...byRound.keys()].sort((a, b) => a - b);
+        rounds.forEach((round, index) => {
+          if (index === 0) return;
+          const before = byRound.get(rounds[index - 1]) as number[];
+          expect(
+            Math.max(...before),
+            `${group.name}: Runde ${round} beginnt vor dem Ende von Runde ${rounds[index - 1]}`,
+          ).toBeLessThan(Math.min(...(byRound.get(round) as number[])));
+        });
+      }
+    },
+  );
+
+  it('lässt den Einfachplan so dicht wie zuvor', () => {
+    // Die Rundenreihenfolge gilt nur mit Rückrunde. Ohne Wiederholung gibt es
+    // nichts vorzuziehen, und die Regel würde dort nur Felder leer lassen:
+    // 6 Spieler brauchen je Runde 3 Spiele, auf 2 Feldern also 2 Slots, von
+    // denen der zweite halb frei bliebe.
+    const groups = drawGroups(makePlayers(6), 1, createRng(13));
+    const cfg = config({
+      format: 'groups',
+      participants: 6,
+      groupCount: 1,
+      groupSize: 6,
+      fields: 2,
+    });
+    const scheduled = scheduleMatches(buildGroupMatches(groups), cfg);
+
+    expect(scheduled).toHaveLength(15);
+    expect(scheduled.every((m) => Boolean(m.scheduledAt))).toBe(true);
+    // 15 Spiele auf 2 Feldern – dichter als 8 Slots geht nicht.
+    expect(new Set(scheduled.map((m) => m.scheduledAt)).size).toBe(8);
+  });
 
   it('setzt auch mit festen Gruppenfeldern niemanden zeitgleich auf zwei Felder', () => {
     const { scheduled } = plan(16, 4, 4, true);

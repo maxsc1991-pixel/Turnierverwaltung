@@ -85,20 +85,29 @@ anderswo nachbaut, riskiert eine Anzeige, die der tatsächlichen Qualifikation w
 ### Hin- und Rückrunde
 
 `config.returnLeg` (abgefragt über `hasReturnLeg`) hängt in `buildGroupMatches` dieselben
-Kreisverfahren-Runden ein zweites Mal an, mit getauschten Seiten und `Match.leg = 2`. Die
-Wiederholung in **derselben Rundenreihenfolge** ist Absicht: dadurch liegen zwischen Hin- und
-Rückspiel einer Paarung immer alle übrigen Runden der Gruppe – der größtmögliche Abstand. Wer die
-Rückrunde umsortiert oder mischt, verkleinert ihn.
+Kreisverfahren-Runden ein zweites Mal an, mit getauschten Seiten und `Match.leg = 2`. Runde *r* der
+Rückrunde hat damit dieselben Paarungen wie Runde *r* der Hinrunde.
 
-Dass die Rückrunde einer Gruppe erst nach deren kompletter Hinrunde beginnt, ist **eine Regel der
-Terminplanung**, nicht der Spielerzeugung: Gruppenspiele hängen an keinem Vorspiel, der Planer
-verteilt also allein nach Pausenzeit. `scheduleMatches` sperrt Spiele mit `leg === 2`, bis alle
-Hinrundenspiele derselben Gruppe einen Termin haben.
+Der Abstand zwischen beiden Spielen einer Paarung entsteht deshalb **erst in der Terminplanung**:
+`scheduleMatches` gibt die Runden einer Gruppe nur der Reihe nach frei – eine Runde beginnt erst,
+wenn jedes Spiel der Runde davor einen früheren Termin hat. Daraus folgt beides: die Rückrunde
+beginnt erst nach der kompletten Hinrunde, und zwischen Hin- und Rückspiel liegt jede andere Runde
+der Gruppe.
 
-Dass dieselbe Paarung nicht unmittelbar im nächsten Zeitslot wiederkehrt, ergibt sich daraus von
-selbst – nach der Hinrunde hat jeder andere Gegner länger pausiert als der eben besiegte. Eine
-eigene Sperre dafür wäre toter Code; die Tests sichern die Eigenschaft stattdessen ab. Unvermeidbar
-ist das Wiedersehen nur in einer Zweiergruppe, weil es dort nur eine Paarung gibt.
+**Ohne diese Regel bevorzugt der Planer sogar die sofortige Wiederholung.** Er wählt die Partie,
+deren Spieler am längsten pausiert haben – und direkt nach der Hinrunde ist das ausgerechnet das
+Paar, das die letzte Runde zuerst gespielt hat; die eine Partie, die die Pause *beider* maximiert,
+ist ihr eigenes Rückspiel. Gemessen traf das jede Aufstellung, in der Gruppengröße und Feldzahl
+nicht glatt aufgehen (12 Teilnehmer, 3 Gruppen, 3 Felder: Wiedersehen nach 2 Slots). Die Regel ist
+also kein Feinschliff, sondern trägt die Eigenschaft allein.
+
+Sie gilt **nur bei Rückrunde** (`hasReturnLeg` im Planer über `leg === 2` erkannt). Ohne
+Wiederholung gibt es nichts vorzuziehen, und die Rundenreihenfolge zu erzwingen würde nur Felder
+leer lassen: 6 Spieler auf 2 Feldern brauchen je Runde zwei Slots, von denen der zweite halb frei
+bliebe – der Einfachplan würde von 8 auf 10 Slots wachsen.
+
+Unvermeidbar ist das schnelle Wiedersehen nur in einer Zweiergruppe, weil es dort nur eine Paarung
+gibt.
 
 Tabelle, direkter Vergleich, Feldplan, Teamplan und ewige Tabelle brauchen dafür nichts: sie zählen
 Spiele, nicht Paarungen.

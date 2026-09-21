@@ -62,10 +62,10 @@ export function groupFieldMap(
  * dort – und damit zwangsläufig nacheinander. Die übrigen Partien weichen auf
  * die nicht vergebenen Felder aus.
  *
- * Bei Hin- und Rückrunde beginnt die Rückrunde einer Gruppe erst, wenn alle
- * Hinrundenspiele derselben Gruppe terminiert sind. Dass Hin- und Rückspiel
- * einer Paarung nicht unmittelbar aufeinanderfolgen, ergibt sich daraus von
- * selbst: nach der Hinrunde hat jeder andere Gegner länger pausiert.
+ * Bei Hin- und Rückrunde laufen die Runden einer Gruppe der Reihe nach – eine
+ * Runde beginnt erst, wenn jedes Spiel der Runde davor terminiert ist. Daraus
+ * folgt beides: die Rückrunde beginnt erst nach der kompletten Hinrunde, und
+ * zwischen Hin- und Rückspiel einer Paarung liegen alle übrigen Runden.
  */
 export function scheduleMatches(
   matches: readonly Match[],
@@ -116,20 +116,37 @@ export function scheduleMatches(
     return { min: Math.min(...rests), total: rests.reduce((a, b) => a + b, 0) };
   };
 
-  // Rückrundenspiele warten auf die komplette Hinrunde ihrer Gruppe.
-  const firstLegByGroup = new Map<string, string[]>();
-  for (const match of playable) {
-    if (match.phase !== 'group' || !match.groupId || match.leg === 2) continue;
-    firstLegByGroup.set(match.groupId, [...(firstLegByGroup.get(match.groupId) ?? []), match.id]);
+  // Die Runden einer Gruppe laufen der Reihe nach: eine Runde wird erst
+  // freigegeben, wenn jedes Spiel der Runde davor einen früheren Termin hat.
+  // Ohne diese Regel wählt der Planer allein nach Pausenzeit – und zieht damit
+  // ausgerechnet das Rückspiel der zuletzt gespielten Paarung vor, weil genau
+  // deren beide Spieler am längsten pausiert haben.
+  // Nur bei Hin- und Rückrunde: ohne Wiederholung gibt es nichts vorzuziehen,
+  // und die Reihenfolge zu erzwingen würde dort nur Felder leer lassen.
+  const hasReturnLeg = playable.some((m) => m.leg === 2);
+  const roundsByGroup = new Map<string, Map<number, string[]>>();
+  for (const match of hasReturnLeg ? playable : []) {
+    if (match.phase !== 'group' || !match.groupId) continue;
+    const rounds = roundsByGroup.get(match.groupId) ?? new Map<number, string[]>();
+    rounds.set(match.round, [...(rounds.get(match.round) ?? []), match.id]);
+    roundsByGroup.set(match.groupId, rounds);
   }
 
-  const legReady = (match: Match, slot: number): boolean => {
-    if (match.leg !== 2 || !match.groupId) return true;
-    return (firstLegByGroup.get(match.groupId) ?? []).every((id) => {
-      const first = scheduledSlot.get(id);
-      return first !== undefined && first < slot;
+  const previousRound = new Map<string, string[]>();
+  for (const rounds of roundsByGroup.values()) {
+    const numbers = [...rounds.keys()].sort((a, b) => a - b);
+    numbers.forEach((number, index) => {
+      if (index === 0) return;
+      const before = rounds.get(numbers[index - 1]) ?? [];
+      for (const id of rounds.get(number) ?? []) previousRound.set(id, before);
     });
-  };
+  }
+
+  const roundReady = (match: Match, slot: number): boolean =>
+    (previousRound.get(match.id) ?? []).every((id) => {
+      const before = scheduledSlot.get(id);
+      return before !== undefined && before < slot;
+    });
 
   const maxSlots = playable.length + 2;
   for (let slot = 0; slot < maxSlots && pending.size > 0; slot++) {
@@ -143,7 +160,7 @@ export function scheduleMatches(
         const match = byId.get(id) as Match;
         if (!fits(match, field)) continue;
         if (!depsReady(match, slot)) continue;
-        if (!legReady(match, slot)) continue;
+        if (!roundReady(match, slot)) continue;
         const players = resolver.playerIds(match);
         if (players.some((p) => busy.has(p))) continue;
 
