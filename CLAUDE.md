@@ -15,6 +15,8 @@ Code-Bezeichner sind englisch, Kommentare deutsch. Neue Texte in dieser Sprache 
 ```bash
 npm run dev                                  # Entwicklungsserver
 npm run build                                # tsc -b + Vite-Build nach dist/
+npm run paket                                # nur Vite-Build, ohne Typprüfung
+npm run preview                              # gebautes dist/ über http:// ansehen
 npm run test                                 # alle Tests
 npm run lint                                 # oxlint
 npx tsc -b                                   # nur Typprüfung
@@ -50,6 +52,25 @@ Zwei Konsequenzen, die man leicht übersieht:
   filtert solche Spiele überall aus Listen und aus dem Spielplan.
 - Der Resolver cacht. **Nach jeder Zustandsänderung einen neuen anlegen** – in Komponenten über
   `useMemo` auf `tournament.matches`.
+
+### Doppel-KO: das Final-Rückspiel
+
+Im Doppel-KO liegt neben dem Grand Final immer ein zweites Spiel im Datenbestand (`phase: 'gf_reset'`).
+Gebraucht wird es nur, wenn der Sieger der Siegerrunde das Grand Final verliert – dann haben beide
+genau eine Niederlage. `isBracketResetNeeded()` beantwortet das, `relevantMatches()` blendet das
+Spiel aus, solange die Antwort „nein" lautet.
+
+**Jede Liste von Spielen muss durch `relevantMatches(matches, resolver)` laufen**, sonst taucht ein
+Spiel auf, das nie stattfindet. Die Kombination in `LivePage` und `DisplayPage` ist die vollständige
+Form:
+
+```ts
+relevantMatches(matches, resolver).filter((m) => !resolver.isWalkover(m))
+```
+
+Der Haken dabei: das Rückspiel ist nicht etwa „noch nicht spielbereit". Seine Slots lösen sich auf,
+sobald das Grand Final ein Ergebnis hat – der Resolver meldet also `ready`, auch wenn es gar nicht
+mehr gebraucht wird. Wer es über `status(match)` herausfiltern will, filtert es nicht heraus.
 
 ### Phasenabhängige Konfiguration
 
@@ -298,8 +319,7 @@ Das Logo wird über `public/logo.png` (bevorzugt) bzw. `public/logo.svg` ausgeta
 Unit-Tests decken die Engine ab: `engine.test.ts` (Wertung, Setzung, Spielpläne), `result.test.ts`
 (Eingabe und Prüfung eines Ergebnisses), `tournament.test.ts` (Auslosung, Tabelle, Platzierung),
 `withdraw.test.ts` (nicht angetretene Teams) und `playthrough.test.ts`, der Turniere mit 2 bis 48
-Teilnehmern vollständig durchspielt. Sie sind der
-erste Anlaufpunkt für jede Regeländerung.
+Teilnehmern vollständig durchspielt. Sie sind der erste Anlaufpunkt für jede Regeländerung.
 
 **Vorsicht bei Tests gegen leere Tabellen:** stehen alle Werte auf null, entscheidet der Losentscheid
 nach Setzliste und liefert zufällig oft genau die erwartete Reihenfolge – ein solcher Test besteht
