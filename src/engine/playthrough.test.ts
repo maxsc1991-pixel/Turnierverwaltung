@@ -124,6 +124,11 @@ describe('Turnier vollständig durchspielen', () => {
     [8, 2],
     [16, 4],
     [6, 1],
+    // Größtes Feld im Gruppenmodus: 12 Gruppen, 8 beste Dritte, 32 Qualifizierte
+    // und mit Rückrunde 144 Gruppenspiele.
+    [48, 12],
+    // Größte Einzelgruppe: 9 Runden je Durchgang, 90 Spiele, kein Kreuzmuster.
+    [10, 1],
   ] as Array<[number, number]>) {
     it(`Hin- und Rückrunde mit ${participants} Teilnehmern in ${groupCount} Gruppen läuft bis zum Ende durch`, () => {
       const tournament = createTournament(

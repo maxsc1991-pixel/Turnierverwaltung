@@ -1242,6 +1242,9 @@ describe('Hin- und Rückrunde', () => {
     [4, 1, 1],
     [6, 1, 2],
     [8, 1, 3],
+    // Die beiden Ränder: größtes Teilnehmerfeld und größte Einzelgruppe.
+    [48, 12, 6],
+    [10, 1, 4],
   ];
 
   /** Runden je Durchgang – bei ungerader Gruppengröße zählt die Freilosrunde mit. */
