@@ -16,6 +16,7 @@ import { buildGroupMatches, drawGroups } from './groups';
 import { qualifyFromGroups } from './qualification';
 import { Resolver } from './resolve';
 import { createRng, newSeed, shuffle } from './rng';
+import { minutesForPlannedMatch } from './rounds';
 import { estimatedEnd, groupFieldMap, scheduleMatches, startDate } from './schedule';
 import { computeStandings, type StandingsOptions } from './standings';
 import { findGroupOption } from './validation';
@@ -42,14 +43,21 @@ export function generatePlan(
   const drawn = shuffle(players, createRng(seed));
   const entries: Slot[] = drawn.map((p) => ({ kind: 'player', playerId: p.id }));
 
+  // Reines KO: die Rundeneinstellungen gelten schon beim Erzeugen des Plans,
+  // eine KO-Phase mit eigenen Vorgaben gibt es hier nicht.
+  const durationOf = (match: Match) => minutesForPlannedMatch(config, undefined, match);
+
   if (config.format === 'double_ko') {
-    return { groups: [], matches: scheduleMatches(buildDoubleElimination(entries), config) };
+    return {
+      groups: [],
+      matches: scheduleMatches(buildDoubleElimination(entries), config, { durationOf }),
+    };
   }
 
   const bracket = buildSingleElimination(seedIntoBracket(entries), { idPrefix: 'ko', phase: 'ko' });
   const third = config.thirdPlaceMatch ? buildThirdPlaceMatch(bracket, 'ko') : null;
   const matches = third ? [...bracket, third] : bracket;
-  return { groups: [], matches: scheduleMatches(matches, config) };
+  return { groups: [], matches: scheduleMatches(matches, config, { durationOf }) };
 }
 
 export function createTournament(
@@ -164,9 +172,61 @@ export function startKoPhase(tournament: Tournament, ko?: KoSettings): Tournamen
   const beginAt = ko?.startTime
     ? startDate(ko.startTime)
     : (estimatedEnd(groupMatches, tournament.config) ?? undefined);
-  const scheduled = scheduleMatches(koMatches, koConfig, { beginAt });
+  const scheduled = scheduleMatches(koMatches, koConfig, {
+    beginAt,
+    durationOf: (match) => minutesForPlannedMatch(tournament.config, ko, match),
+  });
 
   return { ...tournament, stage: 'ko', ko, matches: [...groupMatches, ...scheduled] };
+}
+
+/**
+ * Terminiert die KO-Spiele neu – nötig, wenn sich die Leg-Anzahl oder die
+ * Spieldauer einer Runde ändert.
+ *
+ * Die Zuordnung Spiel → Zeitslot hängt nur an Pausenzeiten und Vorspielen, nicht
+ * an der Dauer; neu berechnet werden deshalb ausschließlich die Uhrzeiten. Eine
+ * Runde zu kürzen zieht also alles danach nach vorne und lässt alles davor, wo
+ * es war. Von Hand gesetzte Zeiten und Felder der KO-Spiele gehen dabei
+ * verloren.
+ */
+export function rescheduleKoPhase(tournament: Tournament): Tournament {
+  const koMatches = tournament.matches.filter((m) => m.phase !== 'group' && m.scheduledAt);
+  if (!koMatches.length) return tournament;
+
+  // Bewusst **nicht** neu verteilt, sondern nur neu abgelesen: die vorhandenen
+  // Startzeiten ergeben die Zeitslots, und jeder behält seine Spiele und Felder.
+  //
+  // Den Planer erneut laufen zu lassen wäre verlockend, ist aber falsch: sobald
+  // die ersten Ergebnisse feststehen, kennt er in den Folgerunden echte Spieler
+  // statt Platzhalter, bewertet deren Pausen und verteilt anders. Eine Runde zu
+  // kürzen würde dann Paarungen auf andere Boards und in andere Slots schieben,
+  // während der Aushang am Board noch die alte Einteilung zeigt.
+  const slots = [...new Set(koMatches.map((m) => m.scheduledAt as string))].sort();
+  const lengthOf = slots.map((slot) =>
+    Math.max(
+      1,
+      ...koMatches
+        .filter((m) => m.scheduledAt === slot)
+        .map((m) => minutesForPlannedMatch(tournament.config, tournament.ko, m)),
+    ),
+  );
+
+  const startOf = new Map<string, string>();
+  let clock = new Date(slots[0]).getTime();
+  slots.forEach((slot, index) => {
+    startOf.set(slot, new Date(clock).toISOString());
+    clock += lengthOf[index] * 60_000;
+  });
+
+  return {
+    ...tournament,
+    matches: tournament.matches.map((match) =>
+      match.phase === 'group' || !match.scheduledAt
+        ? match
+        : { ...match, scheduledAt: startOf.get(match.scheduledAt) ?? match.scheduledAt },
+    ),
+  };
 }
 
 /** Das entscheidende letzte Spiel – je nach Modus Finale, Grand Final oder Rückspiel. */

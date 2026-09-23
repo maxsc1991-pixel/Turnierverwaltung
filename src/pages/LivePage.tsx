@@ -24,6 +24,14 @@ import {
 } from '../engine/types';
 import { findGroupOption } from '../engine/validation';
 import { relevantMatches } from '../engine/doubleKo';
+import { KoRoundTable } from '../components/KoRoundTable';
+import {
+  configForMatch,
+  koRoundLabelsOf,
+  legsSummary,
+  roundSettings,
+  startedRounds,
+} from '../engine/rounds';
 import {
   allStandings,
   groupOrigins,
@@ -38,6 +46,7 @@ export function LivePage() {
   const setResult = useTournamentStore((s) => s.setResult);
   const clearResult = useTournamentStore((s) => s.clearResult);
   const finish = useTournamentStore((s) => s.finish);
+  const setKoRound = useTournamentStore((s) => s.setKoRound);
   const withdrawPlayer = useTournamentStore((s) => s.withdrawPlayer);
   const reinstatePlayer = useTournamentStore((s) => s.reinstatePlayer);
 
@@ -93,13 +102,19 @@ export function LivePage() {
 
   // Die KO-Phase kann eigene Spieldauer und Leg-Anzahl haben.
   const koConfig = applyKoSettings(config, tournament.ko);
-  const configFor = (match: Match) => (match.phase === 'group' ? config : koConfig);
+  // Jede KO-Runde kann eine eigene Leg-Anzahl haben – die Zuordnung Spiel →
+  // geltende Konfiguration gehört deshalb in die Engine, nicht hierher.
+  const configFor = (match: Match) => configForMatch(tournament, match);
   const stageConfig = inGroupPhase ? config : koConfig;
 
   const groupsDone = groupPhaseComplete(tournament);
   const needsKo = hasKoPhase(config);
   const finished = tournamentComplete(tournament);
   const editingMatch = editing ? matches.find((m) => m.id === editing) : undefined;
+  // Runden, in denen schon ein Ergebnis steht, dürfen ihre Leg-Anzahl nicht
+  // mehr ändern – ein 2:1 wäre in einem Best of 1 kein gültiges Ergebnis.
+  const koRounds = roundSettings(config, tournament.ko, koRoundLabelsOf(tournament));
+  const locked = startedRounds(tournament);
 
   return (
     <div className="stack">
@@ -107,8 +122,8 @@ export function LivePage() {
         <div>
           <h1>{config.name || 'Turnier läuft'}</h1>
           <p className="page-head__meta">
-            {SPORT_LABEL[config.sport]} · {inGroupPhase ? 'Gruppenphase' : 'KO-Phase'} · Best of{' '}
-            {bestOf(stageConfig)}
+            {SPORT_LABEL[config.sport]} · {inGroupPhase ? 'Gruppenphase' : 'KO-Phase'} ·{' '}
+            {inGroupPhase ? `Best of ${bestOf(stageConfig)}` : legsSummary(koRounds, bestOf(stageConfig))}
             {scoringOf(stageConfig) === 'legBonus' && ` · Wertung ${SCORING_LABEL.legBonus}`} ·{' '}
             {played.length} von {relevant.length} Spielen gespielt
           </p>
@@ -157,6 +172,20 @@ export function LivePage() {
       )}
 
       {tournament.stage === 'finished' && <FinalRanking tournament={tournament} />}
+
+      {!inGroupPhase && tournament.stage !== 'finished' && koRounds.length > 0 && (
+        <div className="card">
+          <div className="card__head">
+            <div className="card__title">Legs je KO-Runde</div>
+            <span className="faint">
+              Kürzt eine Runde und zieht alles danach im Zeitplan nach vorne.
+            </span>
+          </div>
+          <div className="card__body card__body--flush">
+            <KoRoundTable rounds={koRounds} locked={locked} onChange={setKoRound} />
+          </div>
+        </div>
+      )}
 
       {allowsNoShow(config) && tournament.stage !== 'finished' && (
         <NoShowCard

@@ -41,6 +41,19 @@
   text-decoration: line-through;
 }
 
+/* Leg-Anzahl je KO-Runde */
+
+.ko-rounds__input {
+  width: 72px;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.ko-rounds tr.is-locked .standings__name {
+  color: var(--c-ink-faint);
+}
+
 /* Nicht angetretenes Team in der Gruppentabelle: lesbar, aber deutlich zurück. */
 .standings tr.is-withdrawn td {
   color: var(--c-ink-faint);

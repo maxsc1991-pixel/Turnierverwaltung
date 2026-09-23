@@ -117,12 +117,24 @@ export interface CornholeSettings {
  * seite erfasst, wenn die Gruppenphase abgeschlossen ist.
  */
 export interface KoSettings {
+  /** Vorgabe für alle KO-Runden, die nichts Eigenes gesetzt haben. */
   avgMatchMinutes: number;
-  /** Best of N für die KO-Spiele. */
+  /** Best of N als Vorgabe für alle KO-Runden. */
   legs: number;
   fields: number;
   /** "19:30" – leer bedeutet: direkt im Anschluss an die Gruppenphase. */
   startTime?: string;
+}
+
+/**
+ * Was eine einzelne KO-Runde abweichend von der Vorgabe spielt. Beide Felder
+ * sind einzeln optional: eine Runde kann die Leg-Anzahl ändern und die
+ * Spieldauer erben oder umgekehrt.
+ */
+export interface KoRoundSetting {
+  legs?: number;
+  /** Geplante Spieldauer in Minuten – bestimmt die Länge des Zeitslots. */
+  minutes?: number;
 }
 
 export interface TournamentConfig {
@@ -156,6 +168,13 @@ export interface TournamentConfig {
    * `allowsNoShow`, damit gespeicherte Turniere ohne das Feld gültig bleiben.
    */
   noShowWalkover?: boolean;
+  /**
+   * Abweichende Leg-Anzahl und Spieldauer je KO-Runde, Schlüssel ist das
+   * `roundLabel` des Spiels („Halbfinale", „Siegerrunde · Runde 2", …). Was
+   * hier fehlt, erbt die Vorgabe der KO-Phase – aufgelöst wird das
+   * ausschließlich in `engine/rounds.ts`, nie durch direkten Zugriff.
+   */
+  koRounds?: Record<string, KoRoundSetting>;
   /**
    * Nur bei genau einer Gruppe relevant: Spielen die beiden Erstplatzierten
    * anschließend ein Finale, oder entscheidet allein die Tabelle?
@@ -311,18 +330,25 @@ export function hasKoPhase(config: TournamentConfig): boolean {
  * dort erfassten Werte Spieldauer, Felder und Leg-Anzahl – alles Weitere bleibt
  * unverändert, sodass jede bestehende Auswertung unverändert weiterarbeitet.
  */
+/** Setzt die Leg-Anzahl der aktuell konfigurierten Sportart. */
+export function withLegs(config: TournamentConfig, legs: number): TournamentConfig {
+  if (config.sport === 'dart') {
+    return { ...config, dart: { ...config.dart, legs: { ...config.dart.legs, [config.dart.game]: legs } } };
+  }
+  return { ...config, cornhole: { ...config.cornhole, legs } };
+}
+
 export function applyKoSettings(config: TournamentConfig, ko: KoSettings | undefined): TournamentConfig {
   if (!ko) return config;
-  const base: TournamentConfig = {
-    ...config,
-    avgMatchMinutes: ko.avgMatchMinutes,
-    fields: ko.fields,
-    startTime: ko.startTime || config.startTime,
-  };
-  if (config.sport === 'dart') {
-    return { ...base, dart: { ...config.dart, legs: { ...config.dart.legs, [config.dart.game]: ko.legs } } };
-  }
-  return { ...base, cornhole: { ...config.cornhole, legs: ko.legs } };
+  return withLegs(
+    {
+      ...config,
+      avgMatchMinutes: ko.avgMatchMinutes,
+      fields: ko.fields,
+      startTime: ko.startTime || config.startTime,
+    },
+    ko.legs,
+  );
 }
 
 export const DART_GAME_LABEL: Record<DartGame, string> = {

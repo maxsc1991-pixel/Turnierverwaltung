@@ -5,6 +5,7 @@ import { BracketView } from '../components/BracketView';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
 import { estimatedEnd, findScheduleConflicts, formatTime, startDate } from '../engine/schedule';
+import { legsSummary, minutesForPlannedMatch, roundSettings } from '../engine/rounds';
 import {
   FORMAT_LABEL,
   SCORING_LABEL,
@@ -49,7 +50,11 @@ export function PlanPage() {
   const locked = tournament.stage !== 'plan';
   const option = findGroupOption(config.participants, config.groupCount);
   const playable = matches.filter((m) => !resolver.isWalkover(m));
-  const end = estimatedEnd(matches, config);
+  // Je KO-Runde kann eine andere Spieldauer gelten – das voraussichtliche Ende
+  // muss die tatsächliche Dauer des letzten Spiels verwenden, nicht den Schnitt.
+  const end = estimatedEnd(matches, config, (match) =>
+    minutesForPlannedMatch(config, tournament?.ko, match),
+  );
   const conflicts = findScheduleConflicts(playable);
 
   const pick = (playerId: string) => {
@@ -70,8 +75,10 @@ export function PlanPage() {
         <div>
           <h1>{config.name || 'Turnierplan'}</h1>
           <p className="page-head__meta">
-            {SPORT_LABEL[config.sport]} · {FORMAT_LABEL[config.format]} · {players.length} Teilnehmer ·
-            Best of {bestOf(config)}
+            {SPORT_LABEL[config.sport]} · {FORMAT_LABEL[config.format]} · {players.length} Teilnehmer ·{' '}
+            {config.format === 'groups'
+              ? `Best of ${bestOf(config)}`
+              : legsSummary(roundSettings(config), bestOf(config))}
             {scoringOf(config) === 'legBonus' && ` · Wertung ${SCORING_LABEL.legBonus}`} ·{' '}
             {config.fields} {config.sport === 'dart' ? 'Boards' : 'Bahnen'}
           </p>

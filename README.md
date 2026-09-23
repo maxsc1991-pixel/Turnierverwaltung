@@ -224,6 +224,36 @@ einen Schlag zurücksetzen und dann Team für Team abhaken – umgekehrt setzt *
 Haken wieder. Im Kartenkopf steht, wie viele noch fehlen, und abgemeldete Zeilen sind
 durchgestrichen.
 
+## Legs je KO-Runde
+
+Die KO-Phase muss nicht überall dasselbe Format spielen. In der Konfiguration steht für jede Runde
+eine Zeile mit **Legs** und **Minuten**, zum Beispiel:
+
+| Runde | Legs | Minuten |
+|---|---|---|
+| Sechzehntelfinale | 1 | 8 |
+| Achtelfinale | 3 | 15 |
+| Viertelfinale | 3 | 15 |
+| Halbfinale | 5 | 23 |
+| Finale | 7 | 30 |
+
+Die **Minuten sind zur Leg-Anzahl vorbelegt** – wer das Finale auf Best of 7 setzt, bekommt
+automatisch die doppelte Zeit eines Best of 3, weil vier statt zwei Legs zum Sieg nötig sind. Der
+Wert lässt sich überschreiben, wenn man es bei sich besser weiß.
+
+Das ist keine Kosmetik: die Minuten bestimmen die Länge des Zeitslots im Spielplan. Im Beispiel oben
+beginnt das Sechzehntelfinale um 18:00, das Achtelfinale um 18:32, das Finale um 19:40 – und das
+voraussichtliche Ende steht auf 20:10.
+
+**Nachträglich kürzen:** Dieselbe Tabelle steht auf der Seite *KO-Phase vorbereiten* und während der
+KO-Phase auf der Turnierseite. Wird der Abend zu lang, setzt man Halbfinale und Finale dort
+herunter – alles davor bleibt auf seiner Uhrzeit und seinem Board stehen, alles danach rückt nach
+vorne. Im Beispiel wandert das Ende damit von 20:10 auf 19:42.
+
+Eine Runde, in der schon ein Ergebnis eingetragen ist, lässt ihre Leg-Anzahl nicht mehr ändern – ein
+2:1 aus einem Best of 3 wäre in einem Best of 1 kein gültiges Ergebnis mehr. Die Minuten bleiben
+auch dort einstellbar.
+
 ## Wenn ein Team nicht antritt
 
 Der saubere Weg bleibt: **vor dem Turnierstart** das Team über ✕ aus der Spielerliste entfernen und

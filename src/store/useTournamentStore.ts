@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { KoSettings, MatchResult, Player, Tournament, TournamentConfig } from '../engine/types';
+import type {
+  KoRoundSetting,
+  KoSettings,
+  MatchResult,
+  Player,
+  Tournament,
+  TournamentConfig,
+} from '../engine/types';
 import { defaultConfig, hasReturnLeg } from '../engine/types';
 import { newPlayerId, parsePlayerList, reseed } from '../engine/players';
 import { buildGroupMatches } from '../engine/groups';
@@ -9,8 +16,10 @@ import {
   createTournament,
   finishTournament,
   redraw,
+  rescheduleKoPhase,
   startKoPhase,
 } from '../engine/tournament';
+import { minutesForPlannedMatch, withRoundSetting } from '../engine/rounds';
 import { newSeed } from '../engine/rng';
 import { reinstatePlayer, settleNoShows, withdrawPlayer } from '../engine/withdraw';
 
@@ -64,6 +73,12 @@ interface AppState {
   withdrawPlayer: (playerId: string) => void;
   /** Markierung zurücknehmen; kampflos vergebene Ergebnisse verschwinden wieder. */
   reinstatePlayer: (playerId: string) => void;
+  /**
+   * Leg-Anzahl oder Spieldauer einer KO-Runde im laufenden Turnier ändern.
+   * Die KO-Phase wird danach neu terminiert, damit sich eine Kürzung auch im
+   * voraussichtlichen Ende niederschlägt.
+   */
+  setKoRound: (label: string, patch: KoRoundSetting) => void;
   startKo: (ko?: KoSettings) => void;
   finish: () => void;
 
@@ -183,7 +198,14 @@ export const useTournamentStore = create<AppState>()(
                   : slot;
               return { ...match, a: swap(match.a), b: swap(match.b) };
             });
-            return { ...t, matches: scheduleMatches(matches, t.config) };
+            // Auch hier je Runde terminieren, sonst verliert ein Spielertausch
+            // im Bracket die abweichenden Spieldauern der KO-Runden.
+            return {
+              ...t,
+              matches: scheduleMatches(matches, t.config, {
+                durationOf: (match) => minutesForPlannedMatch(t.config, t.ko, match),
+              }),
+            };
           }),
         ),
 
@@ -251,6 +273,16 @@ export const useTournamentStore = create<AppState>()(
 
       reinstatePlayer: (playerId) =>
         set((s) => updateActive(s, (t) => reinstatePlayer(t, playerId))),
+
+      setKoRound: (label, patch) =>
+        set((s) =>
+          updateActive(s, (t) =>
+            rescheduleKoPhase({
+              ...t,
+              config: { ...t.config, koRounds: withRoundSetting(t.config.koRounds, label, patch) },
+            }),
+          ),
+        ),
 
       /**
        * Ergebnis zurücknehmen. Alles, was auf diesem Spiel aufbaut, verliert

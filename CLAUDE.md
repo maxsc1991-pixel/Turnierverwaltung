@@ -72,6 +72,34 @@ Der Haken dabei: das Rückspiel ist nicht etwa „noch nicht spielbereit". Seine
 sobald das Grand Final ein Ergebnis hat – der Resolver meldet also `ready`, auch wenn es gar nicht
 mehr gebraucht wird. Wer es über `status(match)` herausfiltern will, filtert es nicht heraus.
 
+### Leg-Anzahl je KO-Runde
+
+Die KO-Phase spielt nicht überall dasselbe Format: das Sechzehntelfinale kann Best of 1 sein und das
+Finale Best of 7. Gespeichert wird das in `config.koRounds`, **mit dem `roundLabel` als Schlüssel** –
+eine Rundennummer taugt nicht, weil im Doppel-KO Sieger- und Verliererrunde beide bei 1 anfangen.
+
+Aufgelöst wird das ausschließlich in `engine/rounds.ts`. **`configForMatch(tournament, match)` ist
+der einzige richtige Weg von einem Spiel zu seiner geltenden Konfiguration** – wer `config.koRounds`
+direkt liest, übersieht die Vererbung (Runde → Vorgabe der KO-Phase → Turnierkonfiguration) und wer
+`applyKoSettings` allein nimmt, bekommt die Vorgabe statt der Runde.
+
+Die Spieldauer hängt daran: **ohne sie wäre das Ganze wirkungslos.** Eine Runde zu kürzen soll den
+Abend verkürzen, und das tut es nur, wenn das Zeitraster mitzieht. `scheduleMatches` nimmt deshalb
+`durationOf` entgegen und bildet **variable Slotlängen** – ein Slot ist so lang wie sein längstes
+Spiel. Ohne eigene Minuten schlägt `roundSetting` eine Dauer proportional zu den *Gewinnlegs* vor
+(Best of 7 hat vier statt zwei und dauert damit doppelt so lang wie Best of 3); eingetragene Minuten
+gelten immer.
+
+`rescheduleKoPhase()` rechnet nach einer Änderung **nur die Uhrzeiten neu** und lässt Slots und
+Felder, wie sie sind. Den Planer erneut laufen zu lassen wäre naheliegend und ist falsch: sobald die
+ersten Ergebnisse feststehen, kennt er in den Folgerunden echte Spieler statt Platzhalter, bewertet
+deren Pausen und verteilt anders – gemessen wanderten 15 von 32 Spielen auf andere Boards und in
+andere Slots, während am Board noch der alte Aushang hängt.
+
+Runden mit Ergebnis sind gesperrt (`startedRounds()`): ein 2:1 aus einem Best of 3 wäre in einem
+Best of 1 kein gültiges Ergebnis mehr. Die Kopfzeilen zeigen über `legsSummary()` eine Spanne
+(„Best of 1–7"), weil eine einzelne Zahl dort schlicht falsch wäre.
+
 ### Phasenabhängige Konfiguration
 
 Die KO-Phase kann eigene Werte haben (Spieldauer, Legs, Felder, Startzeit) – gespeichert als
@@ -79,9 +107,9 @@ Die KO-Phase kann eigene Werte haben (Spieldauer, Legs, Felder, Startzeit) – g
 `applyKoSettings(config, ko)` diese Werte über die Turnierkonfiguration und liefert eine normale
 `TournamentConfig` zurück.
 
-**Für Spiele der KO-Phase immer die abgeleitete Konfiguration verwenden** (`configFor(match)` in der
-`LivePage`), sonst gilt versehentlich die Leg-Anzahl der Gruppenphase bei Ergebniseingabe,
-Validierung und Schnellauswahl.
+**Für Spiele der KO-Phase immer `configForMatch()` verwenden** (siehe „Leg-Anzahl je KO-Runde"),
+sonst gilt versehentlich die Leg-Anzahl der Gruppenphase bei Ergebniseingabe, Validierung und
+Schnellauswahl – oder die Vorgabe der KO-Phase statt der Runde.
 
 ### Die eine Regel für Gruppenphasen
 
@@ -318,8 +346,8 @@ Das Logo wird über `public/logo.png` (bevorzugt) bzw. `public/logo.svg` ausgeta
 
 Unit-Tests decken die Engine ab: `engine.test.ts` (Wertung, Setzung, Spielpläne), `result.test.ts`
 (Eingabe und Prüfung eines Ergebnisses), `tournament.test.ts` (Auslosung, Tabelle, Platzierung),
-`withdraw.test.ts` (nicht angetretene Teams) und `playthrough.test.ts`, der Turniere mit 2 bis 48
-Teilnehmern vollständig durchspielt. Sie sind der erste Anlaufpunkt für jede Regeländerung.
+`withdraw.test.ts` (nicht angetretene Teams), `rounds.test.ts` (Leg-Anzahl je KO-Runde) und
+`playthrough.test.ts`, der Turniere mit 2 bis 48 Teilnehmern vollständig durchspielt. Sie sind der erste Anlaufpunkt für jede Regeländerung.
 
 **Vorsicht bei Tests gegen leere Tabellen:** stehen alle Werte auf null, entscheidet der Losentscheid
 nach Setzliste und liefert zufällig oft genau die erwartete Reihenfolge – ein solcher Test besteht

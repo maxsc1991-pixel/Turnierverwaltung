@@ -70,12 +70,22 @@ export function groupFieldMap(
 export function scheduleMatches(
   matches: readonly Match[],
   config: TournamentConfig,
-  options: { beginAt?: Date; groupFields?: Map<string, number> } = {},
+  options: {
+    beginAt?: Date;
+    groupFields?: Map<string, number>;
+    /**
+     * Geplante Dauer eines einzelnen Spiels. Ohne Angabe gilt überall die
+     * durchschnittliche Spieldauer der Konfiguration; die KO-Phase kann je
+     * Runde eine andere Leg-Anzahl und damit eine andere Dauer haben.
+     */
+    durationOf?: (match: Match) => number;
+  } = {},
 ): Match[] {
   const resolver = new Resolver(matches);
   const byId = new Map(matches.map((m) => [m.id, m]));
   const fields = Math.max(1, config.fields);
   const slotMinutes = Math.max(1, config.avgMatchMinutes);
+  const durationOf = (match: Match) => Math.max(1, options.durationOf?.(match) ?? slotMinutes);
   const begin = options.beginAt ?? startDate(config.startTime);
 
   const groupFields = options.groupFields ?? new Map<string, number>();
@@ -98,7 +108,13 @@ export function scheduleMatches(
   const scheduledSlot = new Map<string, number>();
   const lastPlayed = new Map<string, number>();
   const pending = new Set(playable.map((m) => m.id));
-  const output = new Map<string, { field: number; scheduledAt: string }>();
+  const output = new Map<string, { field: number; slot: number }>();
+  /**
+   * Länge jedes Zeitslots in Minuten: so lang wie das längste Spiel darin.
+   * Dadurch verkürzt eine Runde mit weniger Legs den Abend tatsächlich, statt
+   * nur im Ergebnisdialog anders auszusehen.
+   */
+  const slotLength: number[] = [];
 
   const depsReady = (match: Match, slot: number): boolean =>
     dependencies(match).every((id) => {
@@ -190,17 +206,28 @@ export function scheduleMatches(
         busy.add(player);
         lastPlayed.set(player, slot);
       }
-      output.set(best.id, {
-        field,
-        scheduledAt: new Date(begin.getTime() + slot * slotMinutes * 60_000).toISOString(),
-      });
+      slotLength[slot] = Math.max(slotLength[slot] ?? 0, durationOf(best));
+      output.set(best.id, { field, slot });
     }
+  }
+
+  // Erst jetzt lassen sich die Uhrzeiten bilden: ein Slot beginnt, wenn der
+  // vorige zu Ende ist, und dessen Länge steht erst fest, wenn er belegt ist.
+  const slotStart: number[] = [];
+  let clock = begin.getTime();
+  for (let slot = 0; slot < slotLength.length; slot++) {
+    slotStart[slot] = clock;
+    clock += (slotLength[slot] ?? slotMinutes) * 60_000;
   }
 
   return matches.map((match) => {
     const assigned = output.get(match.id);
     if (!assigned) return { ...match, field: undefined, scheduledAt: undefined };
-    return { ...match, field: assigned.field, scheduledAt: assigned.scheduledAt };
+    return {
+      ...match,
+      field: assigned.field,
+      scheduledAt: new Date(slotStart[assigned.slot]).toISOString(),
+    };
   });
 }
 
@@ -239,12 +266,24 @@ export function findScheduleConflicts(matches: readonly Match[]): ScheduleConfli
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 }
 
-/** Geschätztes Turnierende auf Basis des letzten geplanten Spiels. */
-export function estimatedEnd(matches: readonly Match[], config: TournamentConfig): Date | null {
-  const times = matches
-    .map((m) => m.scheduledAt)
-    .filter((t): t is string => Boolean(t))
-    .map((t) => new Date(t).getTime());
-  if (!times.length) return null;
-  return new Date(Math.max(...times) + config.avgMatchMinutes * 60_000);
+/**
+ * Geschätztes Turnierende: Beginn des letzten Spiels plus dessen eigene Dauer.
+ * Ohne `durationOf` gilt die durchschnittliche Spieldauer der Konfiguration –
+ * in der KO-Phase kann die letzte Runde aber länger dauern als alle davor.
+ */
+export function estimatedEnd(
+  matches: readonly Match[],
+  config: TournamentConfig,
+  durationOf?: (match: Match) => number,
+): Date | null {
+  const scheduled = matches.filter((m) => m.scheduledAt);
+  if (!scheduled.length) return null;
+
+  let end = 0;
+  for (const match of scheduled) {
+    const start = new Date(match.scheduledAt as string).getTime();
+    const minutes = Math.max(1, durationOf?.(match) ?? config.avgMatchMinutes);
+    end = Math.max(end, start + minutes * 60_000);
+  }
+  return new Date(end);
 }

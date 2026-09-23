@@ -14,6 +14,8 @@ import { allStandings, groupPhaseComplete, seedOf, standingsOptions } from '../e
 import { estimatedEnd, formatTime } from '../engine/schedule';
 import { findGroupOption, roundNames } from '../engine/validation';
 import { groupsWithWithdrawal } from '../engine/withdraw';
+import { roundSettings } from '../engine/rounds';
+import { KoRoundTable } from '../components/KoRoundTable';
 
 /**
  * Zwischenschritt zwischen Gruppenphase und KO-Runde: hier werden Spieldauer,
@@ -24,6 +26,7 @@ export function KoSetupPage() {
   const navigate = useNavigate();
   const tournament = useTournamentStore((s) => s.active);
   const startKo = useTournamentStore((s) => s.startKo);
+  const setKoRound = useTournamentStore((s) => s.setKoRound);
 
   const groupEnd = tournament ? estimatedEnd(
     tournament.matches.filter((m) => m.phase === 'group'),
@@ -88,6 +91,9 @@ export function KoSetupPage() {
   const { config, players } = tournament;
   const option = findGroupOption(config.participants, config.groupCount);
   const withdrawnGroups = groupsWithWithdrawal(tournament);
+  // Die Vorgabe kommt aus den Feldern oben, die noch nicht gespeichert sind –
+  // die Tabelle muss also mit dem aktuellen Formularstand rechnen.
+  const koRounds = roundSettings(tournament.config, settings);
   const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '–';
   const legsToWin = Math.floor(settings.legs / 2) + 1;
 
@@ -180,6 +186,21 @@ export function KoSetupPage() {
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card__head">
+          <div className="card__title">Legs je KO-Runde</div>
+          <span className="faint">
+            Ohne Eintrag gilt überall Best of {settings.legs} aus den Einstellungen oben.
+          </span>
+        </div>
+        <div className="card__body card__body--flush">
+          <KoRoundTable
+            rounds={koRounds}
+            onChange={(label, patch) => setKoRound(label, patch)}
+          />
         </div>
       </div>
 

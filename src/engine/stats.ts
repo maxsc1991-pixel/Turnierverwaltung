@@ -1,5 +1,6 @@
-import type { Sport, Tournament } from './types';
-import { applyKoSettings, scoringOf } from './types';
+import type { Match, Scoring, Sport, Tournament } from './types';
+import { scoringOf } from './types';
+import { configForMatch } from './rounds';
 import { Resolver } from './resolve';
 import { matchPoints } from './standings';
 
@@ -61,11 +62,19 @@ export function computeAllTimeStats(
     const resolver = new Resolver(tournament.matches);
     const byId = new Map(tournament.players.map((p) => [p.id, p]));
 
-    // Jedes Turnier bringt seine eigene Wertung mit; die KO-Phase kann dabei
-    // eine andere Leg-Anzahl haben als die Gruppenphase und damit auch eine
-    // andere geltende Wertung (ein einzelnes Leg wird immer standard gewertet).
-    const groupScoring = scoringOf(tournament.config);
-    const koScoring = scoringOf(applyKoSettings(tournament.config, tournament.ko));
+    // Jedes Turnier bringt seine eigene Wertung mit, und sie kann sich je Spiel
+    // unterscheiden: die KO-Phase hat womöglich eine andere Leg-Anzahl als die
+    // Gruppenphase, und dort sogar je Runde eine eigene. Ein einzelnes Leg wird
+    // immer standard gewertet – deshalb je Spiel über seine Rundenkonfiguration.
+    const scoringCache = new Map<string, Scoring>();
+    const scoringFor = (match: Match): Scoring => {
+      const key = match.phase === 'group' ? 'group' : match.roundLabel;
+      const known = scoringCache.get(key);
+      if (known) return known;
+      const scoring = scoringOf(configForMatch(tournament, match));
+      scoringCache.set(key, scoring);
+      return scoring;
+    };
 
     const entryFor = (playerId: string): PlayerStats | undefined => {
       const player = byId.get(playerId);
@@ -113,7 +122,7 @@ export function computeAllTimeStats(
         sb.drawn++;
       }
 
-      const scoring = match.phase === 'group' ? groupScoring : koScoring;
+      const scoring = scoringFor(match);
       sa.points += matchPoints(legsA, legsB, scoring);
       sb.points += matchPoints(legsB, legsA, scoring);
     }

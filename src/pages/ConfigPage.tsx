@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTournamentStore } from '../store/useTournamentStore';
 import { PlayerManager } from '../components/PlayerManager';
+import { KoRoundTable } from '../components/KoRoundTable';
+import { roundSettings, withRoundSetting } from '../engine/rounds';
 import {
   DART_GAME_LABEL,
   FORMAT_LABEL,
@@ -58,6 +60,9 @@ export function ConfigPage() {
     ((config.groupSize * (config.groupSize - 1)) / 2) *
     (config.returnLeg ? 2 : 1);
   const blocked = hasErrors(issues);
+  // Die KO-Runden ergeben sich aus dem Modus und der Teilnehmerzahl – im
+  // Gruppenmodus aus den Qualifizierten, nicht aus den Teilnehmern.
+  const koRounds = useMemo(() => roundSettings(config), [config]);
 
   const changeParticipants = (value: number) => {
     const participants = Math.min(MAX_PARTICIPANTS, Math.max(MIN_PARTICIPANTS, value || 0));
@@ -319,6 +324,18 @@ export function ConfigPage() {
               Im Doppel-KO ergibt sich Platz 3 aus der Verliererrunde – ein separates Spiel um Platz 3
               entfällt.
             </p>
+          )}
+
+          {koRounds.length > 0 && (
+            <div className="field">
+              <span className="field-label">Legs je KO-Runde</span>
+              <KoRoundTable
+                rounds={koRounds}
+                onChange={(label, patch) =>
+                  setConfig({ koRounds: withRoundSetting(config.koRounds, label, patch) })
+                }
+              />
+            </div>
           )}
 
           <label className="row">

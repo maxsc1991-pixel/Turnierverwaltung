@@ -1,12 +1,6 @@
 import { Resolver } from './resolve';
-import {
-  applyKoSettings,
-  isWithdrawn,
-  legsToWin,
-  type Match,
-  type Tournament,
-  type TournamentConfig,
-} from './types';
+import { configForMatch } from './rounds';
+import { isWithdrawn, legsToWin, type Tournament } from './types';
 
 /**
  * Nicht angetretene Teams.
@@ -33,12 +27,6 @@ import {
  * darauf hinweisen kann, statt still zu korrigieren.
  */
 
-/** Konfiguration der Phase, in der ein Spiel stattfindet. */
-function configFor(tournament: Tournament, match: Match): TournamentConfig {
-  return match.phase === 'group'
-    ? tournament.config
-    : applyKoSettings(tournament.config, tournament.ko);
-}
 
 /**
  * Trägt für jedes spielbereite, noch offene Spiel eines zurückgezogenen Teams
@@ -67,7 +55,7 @@ export function settleNoShows(tournament: Tournament): Tournament {
     const outB = withdrawn.includes(b.playerId);
     if (!outA && !outB) return match;
 
-    const target = legsToWin(configFor(tournament, match));
+    const target = legsToWin(configForMatch(tournament, match));
     // Treten beide nicht an, gibt es nichts zu gewinnen – 0:0, kein Sieger.
     const result = outA && outB
       ? { legsA: 0, legsB: 0 }
