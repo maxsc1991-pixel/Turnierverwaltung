@@ -52,6 +52,9 @@ Zwei Konsequenzen, die man leicht übersieht:
   filtert solche Spiele überall aus Listen und aus dem Spielplan.
 - Der Resolver cacht. **Nach jeder Zustandsänderung einen neuen anlegen** – in Komponenten über
   `useMemo` auf `tournament.matches`.
+- `describeSlot()` benennt einen offenen Platz als „Sieger Halbfinale 1" und braucht dafür den Index
+  aus `indexMatches()`. Ohne ihn fällt es stillschweigend auf „Sieger Vorspiel" zurück – kein
+  Fehler, nur eine nutzlose Anzeige.
 
 ### Doppel-KO: das Final-Rückspiel
 
@@ -228,6 +231,17 @@ erfasst ist.
 Der direkte Vergleich ist eine Mini-Tabelle nur aus den Spielen der Gleichstehenden untereinander –
 er entscheidet also erst, wenn die Kriterien davor gleich sind.
 
+### Die ewige Tabelle erkennt Spieler am Namen
+
+`stats.ts` fasst über `playerKey(name)` zusammen – getrimmt und kleingeschrieben. **Nicht über die
+Spieler-ID**: die wird je Turnier neu vergeben (`newPlayerId()`), ein Spieler hat also in jedem
+Turnier eine andere. Der Name ist das Einzige, was über Turniere hinweg trägt.
+
+Daraus folgen zwei Dinge, die man leicht kaputtmacht: zwei verschiedene Spieler mit gleichem Namen
+verschmelzen in der ewigen Tabelle zu einer Zeile – deshalb warnt der `PlayerManager` vor doppelten
+Namen –, und ein Tippfehler in einem späteren Turnier erzeugt eine zweite Zeile. Der Verein dient
+nur der Anzeige und wird beim ersten Vorkommen übernommen; er ist **kein** Teil des Schlüssels.
+
 ### Terminplanung
 
 `engine/schedule.ts` verteilt greedy über Zeitslots: pro Slot wird jedes Feld mit der spielbereiten
@@ -309,6 +323,12 @@ Liste entfernt – das ist die Entscheidung des Turnierleiters, nicht die des Pr
 Auslosung, Spielplan oder Wertung anzuschließen wäre also keine Verbesserung, sondern eine
 Verhaltensänderung; ein Test in `engine.test.ts` hält fest, dass dieselbe Auslosung mit und ohne
 Haken Spiel für Spiel identisch bleibt.
+
+Der JSON-Import (`importData`) **führt zusammen, statt zu ersetzen**: Turniere aus der Datei
+gewinnen bei gleicher `id`, alle übrigen Archiveinträge bleiben erhalten, und sortiert wird nach
+Abschlussdatum. Nur das *laufende* Turnier wird überschrieben, sofern die Datei eines enthält – ein
+Import mitten im Turnier kostet also den aktuellen Stand. Wer das Format ändert, muss `version` in
+`ExportPayload` erhöhen und das Einlesen darauf vorbereiten.
 
 Die Anzeigeseite (`#/anzeige`) läuft typischerweise in einem zweiten Fenster mit eigenem
 Speicherzustand. Sie holt sich Änderungen über `persist.rehydrate()` – zyklisch im eingestellten
