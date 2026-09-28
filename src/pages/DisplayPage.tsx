@@ -5,7 +5,7 @@ import { PlacementTable } from '../components/PlacementTable';
 import { StandingsTable } from '../components/StandingsTable';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
-import { formatTime } from '../engine/schedule';
+import { formatTime, groupFieldMap, runningPerField } from '../engine/schedule';
 import { relevantMatches } from '../engine/doubleKo';
 import { SCORING_LABEL, SPORT_LABEL, hasKoPhase, scoringOf, type Match } from '../engine/types';
 import { findGroupOption, roundNames } from '../engine/validation';
@@ -90,7 +90,12 @@ export function DisplayPage() {
         (a.scheduledAt ?? '').localeCompare(b.scheduledAt ?? '') || (a.field ?? 0) - (b.field ?? 0),
     );
 
-  const current = ready.slice(0, config.fields);
+  // Je Feld eine Partie – nicht die frühesten N nach Uhrzeit. Die Zeiten im
+  // Plan sind eine Schätzung; welches Board frei ist, entscheidet die Belegung.
+  const current = runningPerField(ready, config.fields, {
+    groupFields: groupFieldMap(groups, config.fields),
+    playerIds: (match) => resolver.playerIds(match),
+  });
   const upcoming = upcomingPerField(ready, current);
   const koMatches = matches.filter((m) => m.phase !== 'group');
   const showKo = koMatches.length > 0;

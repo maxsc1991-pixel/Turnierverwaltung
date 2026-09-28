@@ -212,6 +212,17 @@ betroffenen Feldern und Zeiten. Über *Neu auslosen* wird der Spielplan wieder s
 
 Während des Turniers zeigt jede Gruppe ihr festes Feld als rote Markierung neben dem Gruppennamen.
 
+**Die Uhrzeiten sind eine Schätzung, kein Fahrplan.** Ein Spiel kann in fünf Minuten vorbei sein
+oder eine halbe Stunde dauern – deshalb entscheidet nicht die geplante Zeit, was als Nächstes läuft,
+sondern welches Feld frei ist. Unter *Läuft jetzt* steht auf der Turnieransicht und der Anzeigeseite
+**je Spielfeld genau eine Partie**.
+
+Eilt ein Feld den anderen voraus, bleibt es deshalb bei seiner Gruppe: dort geht es mit dem nächsten
+Spiel dieser Gruppe weiter, während die übrigen Felder ungerührt ihr laufendes Spiel behalten. Ein
+Feld, das einer Gruppe fest gehört, nimmt nie ein fremdes Spiel auf – ist die Gruppe durch, bleibt
+das Feld leer. Nur Felder ohne feste Zuweisung werden mit der nächsten freien Partie aufgefüllt, und
+in der KO-Phase gilt das für alle Felder.
+
 ## Anmeldung: Spalte „Anwesend"
 
 In der Spielerliste der Konfigurationsseite hat jede Zeile einen Haken **Anwesend**. Er ist eine

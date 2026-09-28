@@ -8,7 +8,7 @@ import { PlacementTable } from '../components/PlacementTable';
 import { StandingsTable } from '../components/StandingsTable';
 import { Resolver, indexMatches } from '../engine/resolve';
 import { describeSlot } from '../engine/labels';
-import { formatTime } from '../engine/schedule';
+import { formatTime, groupFieldMap, runningPerField } from '../engine/schedule';
 import {
   SCORING_LABEL,
   SPORT_LABEL,
@@ -96,8 +96,14 @@ export function LivePage() {
         (a.scheduledAt ?? '').localeCompare(b.scheduledAt ?? '') || (a.field ?? 0) - (b.field ?? 0),
     );
 
-  const current = ready.slice(0, config.fields);
-  const upcoming = ready.slice(config.fields);
+  // Je Feld eine Partie – nicht die frühesten N nach Uhrzeit. Die Zeiten im
+  // Plan sind eine Schätzung; welches Board frei ist, entscheidet die Belegung.
+  const current = runningPerField(ready, config.fields, {
+    groupFields: groupFieldMap(groups, config.fields),
+    playerIds: (match) => resolver.playerIds(match),
+  });
+  const laufend = new Set(current.map((m) => m.id));
+  const upcoming = ready.filter((m) => !laufend.has(m.id));
   const pendingCount = relevant.length - played.length;
 
   // Die KO-Phase kann eigene Spieldauer und Leg-Anzahl haben.
@@ -267,6 +273,9 @@ export function LivePage() {
                   Läuft jetzt
                   <span className="badge badge--red">{current.length}</span>
                 </div>
+                <span className="faint">
+                  Je Spielfeld eine Partie – die Uhrzeiten sind nur eine Schätzung.
+                </span>
               </div>
               <div className="card__body">
                 {current.length === 0 ? (

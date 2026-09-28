@@ -261,7 +261,8 @@ export function PlanPage() {
         <div className="card__head">
           <div className="card__title">Spielfelder und Zeiten</div>
           <span className="faint">
-            Automatisch so verteilt, dass die Pausen möglichst gleichmäßig sind.
+            Automatisch so verteilt, dass die Pausen möglichst gleichmäßig sind. Die Uhrzeiten sind
+            eine Schätzung – gespielt wird, sobald ein Feld frei ist.
           </span>
         </div>
         {conflicts.length > 0 && (

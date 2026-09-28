@@ -238,6 +238,74 @@ function compareMatches(x: Match, y: Match): number {
   return x.indexInRound - y.indexInRound;
 }
 
+/**
+ * Was gerade an den Spielfeldern läuft – **eine Partie je Feld**.
+ *
+ * Die Uhrzeiten im Plan sind eine Schätzung, kein Fahrplan: ein Spiel kann in
+ * fünf Minuten vorbei sein oder eine halbe Stunde dauern. Die Belegung darf
+ * deshalb nicht aus der Zeit abgeleitet werden, sondern nur daraus, **welches
+ * Feld gerade frei ist**.
+ *
+ * Wer die frühesten N spielbereiten Partien nimmt, bekommt bei festen
+ * Gruppenfeldern Unsinn: eilt ein Feld zwei Spiele voraus, stehen zwei Partien
+ * derselben Gruppe oben und ihr eigenes Feld fehlt ganz – obwohl dort etwas
+ * bereitliegt und die Gruppe ohnehin nur dort spielen darf.
+ *
+ * Ein Feld, das einer Gruppe fest gehört, nimmt ausschließlich deren Spiele.
+ * Übrige Felder werden danach mit allem aufgefüllt, was keiner fremden Gruppe
+ * gehört – in der KO-Phase ist das jede Partie, dort gibt es keine Zuweisung.
+ */
+export function runningPerField(
+  ready: readonly Match[],
+  fields: number,
+  options: { groupFields?: Map<string, number>; playerIds?: (match: Match) => string[] } = {},
+): Match[] {
+  const groupFields = options.groupFields ?? new Map<string, number>();
+  const playerIds = options.playerIds ?? (() => []);
+
+  const byTime = ready
+    .slice()
+    .sort(
+      (a, b) =>
+        (a.scheduledAt ?? '').localeCompare(b.scheduledAt ?? '') || (a.field ?? 0) - (b.field ?? 0),
+    );
+
+  const taken = new Set<string>();
+  const busy = new Set<string>();
+  const chosen = new Map<number, Match>();
+
+  /** Feld, das dieses Spiel belegen muss – oder `undefined`, wenn es frei ist. */
+  const ownField = (match: Match) =>
+    match.groupId ? groupFields.get(match.groupId) : undefined;
+
+  const claim = (field: number, match: Match) => {
+    chosen.set(field, match);
+    taken.add(match.id);
+    for (const id of playerIds(match)) busy.add(id);
+  };
+
+  const free = (match: Match) => !taken.has(match.id) && !playerIds(match).some((id) => busy.has(id));
+
+  // Erst die geplante Belegung: je Feld die früheste Partie, die dort steht.
+  for (let field = 1; field <= fields; field++) {
+    const match = byTime.find((m) => m.field === field && free(m));
+    if (match) claim(field, match);
+  }
+
+  // Dann die noch leeren Felder auffüllen – aber nie mit dem Spiel einer
+  // Gruppe, die anderswo ihr festes Feld hat.
+  for (let field = 1; field <= fields; field++) {
+    if (chosen.has(field)) continue;
+    const match = byTime.find((m) => {
+      const own = ownField(m);
+      return free(m) && (own === undefined || own === field);
+    });
+    if (match) claim(field, match);
+  }
+
+  return [...chosen.entries()].sort((a, b) => a[0] - b[0]).map(([, match]) => match);
+}
+
 export interface ScheduleConflict {
   field: number;
   scheduledAt: string;

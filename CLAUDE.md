@@ -241,6 +241,19 @@ festen Gruppenfeldern kann auf einem späteren Feld sehr wohl noch eine Partie a
 Von Hand geänderte Felder oder Zeiten können Doppelbelegungen erzeugen; `findScheduleConflicts()`
 findet sie und die Planseite weist darauf hin.
 
+**Die Uhrzeiten sind eine Schätzung, kein Fahrplan.** Ein Spiel kann in fünf Minuten vorbei sein
+oder eine halbe Stunde dauern. Was gerade läuft, darf deshalb nicht aus der Zeit abgeleitet werden,
+sondern nur daraus, welches Feld frei ist – dafür gibt es `runningPerField()`, und Turnieransicht
+wie Anzeigeseite nehmen ausschließlich diese Funktion.
+
+Die frühesten N spielbereiten Partien zu nehmen (`ready.slice(0, fields)`) sieht richtig aus und ist
+es nicht: eilt ein Feld zwei Spiele voraus, stehen plötzlich zwei Partien derselben Gruppe unter
+„Läuft jetzt" und ihr eigenes Feld fehlt ganz – obwohl dort etwas bereitliegt und die Gruppe
+ohnehin nur dort spielen darf. `runningPerField` belegt daher **je Feld genau eine Partie**: erst die
+dort geplanten, dann werden leere Felder aufgefüllt, aber nie mit dem Spiel einer Gruppe, die
+anderswo ihr festes Feld hat. In der KO-Phase greift das nicht, weil KO-Spiele kein `groupId` haben –
+dort darf jedes freie Board die nächste Partie bekommen.
+
 ### Endplatzierung
 
 `computeFinalRanking()` vergibt Ränge an **alle** Teilnehmer; `koPlacements()` filtert daraus die
@@ -346,8 +359,9 @@ Das Logo wird über `public/logo.png` (bevorzugt) bzw. `public/logo.svg` ausgeta
 
 Unit-Tests decken die Engine ab: `engine.test.ts` (Wertung, Setzung, Spielpläne), `result.test.ts`
 (Eingabe und Prüfung eines Ergebnisses), `tournament.test.ts` (Auslosung, Tabelle, Platzierung),
-`withdraw.test.ts` (nicht angetretene Teams), `rounds.test.ts` (Leg-Anzahl je KO-Runde) und
-`playthrough.test.ts`, der Turniere mit 2 bis 48 Teilnehmern vollständig durchspielt. Sie sind der erste Anlaufpunkt für jede Regeländerung.
+`withdraw.test.ts` (nicht angetretene Teams), `rounds.test.ts` (Leg-Anzahl je KO-Runde),
+`running.test.ts` (Belegung der Spielfelder) und `playthrough.test.ts`, der Turniere mit 2 bis 48
+Teilnehmern vollständig durchspielt. Sie sind der erste Anlaufpunkt für jede Regeländerung.
 
 **Vorsicht bei Tests gegen leere Tabellen:** stehen alle Werte auf null, entscheidet der Losentscheid
 nach Setzliste und liefert zufällig oft genau die erwartete Reihenfolge – ein solcher Test besteht
